@@ -1,10 +1,10 @@
 import torch
 from typing import Union
-import wrapt
+import decorator
 
 
-@wrapt.decorator
-def single_qubit_gate(gate_function):
+@decorator.decorator
+def single_qubit_gate(gate_function, *args):
     """Build a single qubit gate given a gate function.
 
     This is intended to be used as a decorator. The gate function takes
@@ -12,31 +12,32 @@ def single_qubit_gate(gate_function):
     or a tensor.
     # TODO: add documentation to explain this better.
     """
-    def run_gate(params):
-        """Get the gate with specified params."""
-        squeeze = False
-        if not isinstance(params, torch.Tensor):
-            params = torch.tensor([float(params)])
-            squeeze = True
-        elif params.dim() == 0:
-            params = params.unsqueeze(0)
-            squeeze = True
-        elif params.dim() != 1:
-            raise ValueError(
-                "angle should be a tensor with no more than 1 index.")
+    params = args[0]
+    squeeze = False
+    if not isinstance(params, torch.Tensor):
+        params = torch.tensor([float(params)])
+        squeeze = True
+    elif params.dim() == 0:
+        params = params.unsqueeze(0)
+        squeeze = True
+    elif params.dim() != 1:
+        raise ValueError(
+            "angle should be a tensor with no more than 1 index.")
 
-        gate = gate_function(params)
-        if not isinstance(gate, torch.Tensor):
-            gate = nested_stack(gate, roll=True)
-        if squeeze:
-            gate = gate.squeeze(0)
-        return gate
-    return run_gate
+    gate = gate_function(params)
+    if not isinstance(gate, torch.Tensor):
+        gate = nested_stack(gate, roll=True)
+    if squeeze:
+        gate = gate.squeeze(0)
+    return gate
 
 
 @single_qubit_gate
 def exp_x(angle: Union[torch.Tensor, float]):
-    """Get the operator e^(-i angle X)."""
+    """Get the operator e^(-i angle X).
+
+    If angle is
+    """
     cos = torch.cos(angle)
     sin = torch.sin(angle)
     zero = torch.zeros(angle.size(), device=angle.device)

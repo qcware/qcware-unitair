@@ -1,7 +1,9 @@
 import torch
 from typing import Union
+import wrapt
 
 
+@wrapt.decorator
 def single_qubit_gate(gate_function):
     """Build a single qubit gate given a gate function.
 

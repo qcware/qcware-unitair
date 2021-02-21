@@ -36,7 +36,13 @@ def single_qubit_gate(gate_function, *args):
 def exp_x(angle: Union[torch.Tensor, float]):
     """Get the operator e^(-i angle X).
 
-    If angle is
+    Args:
+        angle: Tensor with size (batch_length,) or just ().
+
+    Returns: Tensor with size (batch_length, 2, 2, 2) or (2, 2, 2) if there
+        is no batch dimension. The (2, 2, 2) is such that the first dimension
+        means the real and imaginary parts and the last two dimension are
+        the matrices of the real an imaginary parts of the gates.
     """
     cos = torch.cos(angle)
     sin = torch.sin(angle)
@@ -83,13 +89,20 @@ def exp_z(angle: Union[torch.Tensor, float]):
 def nested_stack(params, roll: bool = False):
     """Form a tensor from a nexted list of tensors.
 
-    For example, suppose that a, b, c, and d are all tensors of size (5,).
-    Then, matrix_stack([[a, b], [c, d]]) returns a tensor of size (2, 2, 5).
+    This function is a generalization of torch.stack. For proper usage,
+    it's important that params is a nested list with shape consistent with
+    and array. The innermost elements of that nested list should be PyTorch
+    tensors, all of which have identical size.
 
-    If roll is set to True, then the last output dimension is rolled to
-    the first dimension. This is useful if that dimension was supposed to
-    be a batch dimension. For example, setting roll=True in the example
-    above will result in a tensor of size (5, 2, 2).
+    For an example, suppose that a, b, c, and d are all tensors of size (5,).
+    Then, nested_stack([[a, b], [c, d]]) returns a tensor of size (2, 2, 5).
+
+    If roll is set to True, then the dimensions of the tensors (like a, b, c
+    and d in the example above) will be permuted to the start of the output.
+    This is useful if those dimensions were supposed to be batch dimensions.
+    In the example, the output with roll=True would have size (5, 2, 2).
+    If instead a, b, c, and d all had size (6, 9, 8), then the output size
+    would be (6, 9, 8, 2, 2) if roll=True and (2, 2, 6, 9, 8) if roll=False.
     """
     def recursive_stack(params_):
         if isinstance(params_[0], torch.Tensor):
@@ -98,10 +111,14 @@ def nested_stack(params, roll: bool = False):
         return torch.stack(
             [nested_stack(params_[i]) for i in range(num_rows)]
         )
+    stacked = recursive_stack(params).squeeze(0)
 
-    out = recursive_stack(params).squeeze(0)
     if roll:
-        perm = [out.dim() - 1] + list(range(out.dim() - 1))
-        return out.permute(perm)
+        inner = params[0]
+        while not isinstance(inner, torch.Tensor):
+            inner = inner[0]
+        inner_dim = inner.dim()
+        perm = list(range(stacked.dim()-inner_dim, stacked.dim())) + list(range(stacked.dim()-inner_dim))
+        return stacked.permute(perm)
     else:
-        return out
+        return stacked

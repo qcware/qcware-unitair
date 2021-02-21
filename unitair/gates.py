@@ -17,14 +17,14 @@ def parameterized_gate(gate_function, *args):
     params = args[0]
     squeeze = False
     if not isinstance(params, torch.Tensor):
-        params = torch.tensor([float(params)])
+        params = torch.tensor([float(params)], device=get_default_device())
         squeeze = True
     elif params.dim() == 0:
         params = params.unsqueeze(0)
         squeeze = True
-    elif params.dim() != 1:
-        raise ValueError(
-            "angle should be a tensor with no more than 1 index.")
+    # elif params.dim() != 1:
+    #     raise ValueError(
+    #         "angle should be a tensor with no more than 1 index.")
 
     gate = gate_function(params)
     if not isinstance(gate, torch.Tensor):
@@ -126,6 +126,7 @@ def exp_z(angle: Union[torch.Tensor, float]):
          [zero, sin]]
     ]
 
+
 @constant_gate(real_or_imag='real')
 def pauli_x(device: Optional[torch.device] = None):
     return [
@@ -133,12 +134,14 @@ def pauli_x(device: Optional[torch.device] = None):
         [1., 0.]
     ]
 
+
 @constant_gate(real_or_imag='imag')
 def pauli_y(device: Optional[torch.device] = None):
     return [
         [0., -1.],
         [1., 0.]
     ]
+
 
 @constant_gate(real_or_imag='real')
 def pauli_z(device: Optional[torch.device] = None):
@@ -156,7 +159,6 @@ def cnot(device: Optional[torch.device] = None):
         [0., 0., 0., 1.],
         [0., 0., 1., 0.]
     ]
-
 
 
 def nested_stack(params, roll: bool = False):

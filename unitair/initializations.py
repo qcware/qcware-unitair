@@ -33,7 +33,7 @@ def rand_state(
         device: torch.device = None,
         field: Union[Field, str] = Field.COMPLEX,
         requires_grad: bool = False
-):
+) -> torch.Tensor:
     field = Field(field.lower())
     if device is None:
         device = unitair.get_default_device()

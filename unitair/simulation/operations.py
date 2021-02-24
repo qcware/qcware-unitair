@@ -1,4 +1,4 @@
-from typing import Iterable, Tuple, Union
+from typing import Iterable, Tuple, Union, Optional
 import torch
 from unitair.states import Field
 import unitair.states as states
@@ -22,11 +22,13 @@ def apply_phase(angles: torch.Tensor, state: torch.Tensor):
     ), dim=-2)
 
 
+# TODO: we probably don't need this anymore because of multi-qubit action.
 def act_first_qubit(
         single_qubit_operator: torch.Tensor,
         state: torch.Tensor,
         field: Field = Field.COMPLEX
 ):
+    """Apply a single qubit gate to the first qubit in state."""
     field = Field(field.lower())
     num_qubits = states.count_qubits(state)
 
@@ -141,6 +143,61 @@ def act_last_qubit_tensor(
         real_tens = (act(real_op, real_state) - act(imag_op, imag_state))
         imag_tens = (act(real_op, imag_state) + act(imag_op, real_state))
         return torch.stack((real_tens, imag_tens), dim=-(num_qubits+1))
+    else:
+        assert False, f"Impossible enumeration{field}"
+
+
+def act_first_qubits(
+        operator: torch.Tensor,
+        state: torch.Tensor,
+        field: Union[Field, str] = Field.COMPLEX
+):
+    """Apply a multi-qubit gate to the first qubits of a state."""
+    field = Field(field.lower())
+    num_qubits = states.count_qubits(state)
+    gate_num_qubits = states.count_qubits_gate_matrix(operator)
+    if num_qubits < gate_num_qubits:
+        raise ValueError(
+            f'Attempted to apply a {gate_num_qubits}-qubit gate to '
+            f'{num_qubits} qubit(s).'
+        )
+    state_tensor = states.to_tensor_layout(state)
+    state_tensor = act_first_qubits_tensor(operator, state_tensor, field,
+                                    gate_num_qubits=gate_num_qubits)
+    return states.to_vector_layout(state_tensor, num_qubits=num_qubits)
+
+
+def act_first_qubits_tensor(
+        operator: torch.Tensor,
+        state_tensor: torch.Tensor,
+        field: Field = Field.COMPLEX,
+        gate_num_qubits: Optional[int] = None,
+):
+    field = Field(field.lower())
+    if gate_num_qubits is None:
+        gate_num_qubits = states.count_qubits_gate_matrix(operator)
+
+    gate_dim = 2 ** gate_num_qubits
+    def act(operator, tensor):
+        old_size = tensor.size()
+        new_size = (gate_dim,) + (tensor.dim() - gate_num_qubits) * (2,)
+        tensor_view = tensor.view(new_size)
+        result = torch.einsum('ab, b... -> a...', operator, tensor_view)
+        return result.view(old_size)
+
+    if field is Field.REAL:
+        return act(operator, state_tensor)
+
+    elif field is Field.COMPLEX:
+        real_tens = (
+                act(operator[0], state_tensor[0])
+                - act(operator[1], state_tensor[1])
+        )
+        imag_tens = (
+                act(operator[0], state_tensor[1])
+                + act(operator[1], state_tensor[0])
+        )
+        return torch.stack((real_tens, imag_tens), dim=0)
     else:
         assert False, f"Impossible enumeration{field}"
 

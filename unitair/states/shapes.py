@@ -46,21 +46,42 @@ def count_qubits(state: torch.Tensor):
     return num_bits
 
 
+def count_qubits_gate_matrix(gate: torch.Tensor):
+    """Get the number of qubits that a gate matrix acts on.
+
+    By convention, a gate matrix has the shape
+        Complex case: (*optional_batch_dims, 2, 2^k, 2^k)
+        Real case: (*optional_batch_dims, 2^k, 2^k)
+
+    where k is the number of qubits that the gate acts on. Note that
+    k might be smaller than the number of qubits in a state that we
+    are going to apply the gate on.
+    """
+    length = gate.size(-1)
+    num_bits = round(math.log2(length))
+    if 2 ** num_bits != length:
+        raise RuntimeError(f'Given gate matrix has size {gate.size()} which '
+                           f'is not consistent with any number of qubits.')
+    return num_bits
+
+
+
 def hilbert_space_dim(state: torch.Tensor):
     """Get the dimension of the Hilbert space for a state in vector layout."""
     return 2 ** count_qubits(state)
 
-# def count_qubits_tensor(
-#         state_tensor: torch.Tensor, field: Field = Field.COMPLEX
-# ):
-#     """Get the number of qubits of a state in tensor layout."""
-#     field = Field(field.lower())
-#     if field is Field.REAL:
-#         return state_tensor.dim()
-#     elif field is Field.COMPLEX:
-#         return state_tensor.dim() - 1
-#     else:
-#         assert False
+
+def count_qubits_tensor(
+        state_tensor: torch.Tensor, field: Field = Field.COMPLEX
+):
+    """Get the number of qubits of a state in tensor layout."""
+    field = Field(field.lower())
+    if field is Field.REAL:
+        return state_tensor.dim()
+    elif field is Field.COMPLEX:
+        return state_tensor.dim() - 1
+    else:
+        assert False
 
 
 def real_imag(state: torch.Tensor):

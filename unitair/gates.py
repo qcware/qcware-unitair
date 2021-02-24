@@ -2,7 +2,6 @@ import torch
 from typing import Union, Optional
 import decorator
 from unitair import get_default_device
-from unitair import Field
 
 
 @decorator.decorator
@@ -129,6 +128,12 @@ def exp_z(angle: Union[torch.Tensor, float]):
 
 @constant_gate(real_or_imag='real')
 def pauli_x(device: Optional[torch.device] = None):
+    """Get the Pauli X operator.
+
+    Args:
+        device: If the torch device is not specified, the default device
+            will be used.
+    """
     return [
         [0., 1.],
         [1., 0.]
@@ -137,6 +142,12 @@ def pauli_x(device: Optional[torch.device] = None):
 
 @constant_gate(real_or_imag='imag')
 def pauli_y(device: Optional[torch.device] = None):
+    """Get the Pauli Y operator.
+
+    Args:
+        device: If the torch device is not specified, the default device
+            will be used.
+    """
     return [
         [0., -1.],
         [1., 0.]
@@ -145,6 +156,12 @@ def pauli_y(device: Optional[torch.device] = None):
 
 @constant_gate(real_or_imag='real')
 def pauli_z(device: Optional[torch.device] = None):
+    """Get the Pauli Z operator.
+
+    Args:
+        device: If the torch device is not specified, the default device
+            will be used.
+    """
     return [
         [1., 0.],
         [0., -1.]
@@ -153,6 +170,12 @@ def pauli_z(device: Optional[torch.device] = None):
 
 @constant_gate(real_or_imag='real')
 def cnot(device: Optional[torch.device] = None):
+    """Get a CNOT gate.
+
+    Args:
+        device: If the torch device is not specified, the default device
+            will be used.
+    """
     return [
         [1., 0., 0., 0.],
         [0., 1., 0., 0.],

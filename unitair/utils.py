@@ -1,13 +1,13 @@
 import torch
 from typing import Optional
-from unitair import get_default_device
+import unitair
 
 
 def int_to_bin(x: int, num_bits: int, str_output: bool = False, device: Optional[torch.device] = None):
     if x >= 2 ** num_bits:
         raise ValueError(f"Insufficient bits to store integer {x}.")
     if device is None:
-        device = get_default_device()
+        device = unitair.get_default_device()
 
     bin_format = [int(d) for d in str(bin(x))[2:]]
     padding_size = num_bits - len(bin_format)

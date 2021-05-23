@@ -65,7 +65,6 @@ def count_qubits_gate_matrix(gate: torch.Tensor):
     return num_bits
 
 
-
 def hilbert_space_dim(state: torch.Tensor):
     """Get the dimension of the Hilbert space for a state in vector layout."""
     return 2 ** count_qubits(state)

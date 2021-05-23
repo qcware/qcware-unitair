@@ -28,6 +28,7 @@ def unit_vector(
     return vector
 
 
+# TODO: add batch dimensions!
 def rand_state(
         num_qubits,
         device: torch.device = None,

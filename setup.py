@@ -13,7 +13,7 @@ SOURCE_URL = 'https://github.com/qcware/qcware-unitair.git'
 
 setuptools.setup(
     name="qcware-unitair",
-    version="0.0.3",
+    version="0.0.4",
     author="Sean Weinberg / Fabio Sanches / QC Ware Corp.",
     author_email="sean.weinberg@qcware.com",
     description="PyTorch-based quantum computing.",
@@ -29,5 +29,5 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6'
+    python_requires='>=3.7'
 )

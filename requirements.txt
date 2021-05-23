@@ -1,2 +1,2 @@
-torch==1.7.1
+torch==1.8.1
 decorator==4.4.2

@@ -6,8 +6,8 @@ with open('README.md') as f:
 with open("requirements.txt") as f:
     REQUIREMENTS = [line.strip() for line in f if line.strip()]
 
-with open("LICENSE") as f:
-    LICENSE = [line.strip() for line in f if line.strip()]
+# with open("LICENSE") as f:
+#     LICENSE = [line.strip() for line in f if line.strip()]
 
 SOURCE_URL = 'https://github.com/qcware/qcware-unitair.git'
 
@@ -20,7 +20,7 @@ setuptools.setup(
     long_description=README,
     long_description_content_type="text/markdown",
     url=SOURCE_URL,
-    license=LICENSE,
+    # license=LICENSE,
     packages=setuptools.find_packages(exclude=("tests",)),
     test_suite="tests",
     install_requires=REQUIREMENTS,

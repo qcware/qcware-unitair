@@ -14,30 +14,13 @@ class Field(str, enum.Enum):
     REAL = 'real'
     COMPLEX = 'complex'
 
-# def get_field(state: torch.Tensor):
-#     """Given a state (in vector layout), return the associated field."""
-#     if state.dim() == 1:
-#         return Field.REAL
-#     elif state.dim() == 2:
-#         return Field.COMPLEX
-#     else:
-#         raise StateShapeError(data=state, expected_layout=StateLayout.VECTOR)
-#
-#
-# def get_field_tensor(state_tensor: torch.Tensor, num_qubits: int):
-#     """Given a state in tensor layout, return the associated field."""
-#     if state_tensor.dim() == num_qubits:
-#         return Field.REAL
-#     elif state_tensor.dim() == num_qubits + 1:
-#         return Field.COMPLEX
-#     else:
-#         raise StateShapeError(
-#             data=state_tensor, expected_layout=StateLayout.TENSOR
-#         )
-
 
 def count_qubits(state: torch.Tensor):
     """Get the number of qubits of a state in vector layout.
+
+    Args:
+        state: State (or batch of states) in vector layout.
+
     """
     length = state.size(-1)
     num_bits = round(math.log2(length))

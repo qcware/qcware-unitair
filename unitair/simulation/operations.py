@@ -5,9 +5,18 @@ import unitair.states as states
 
 
 def apply_phase(angles: torch.Tensor, state: torch.Tensor):
-    """Multiply the jth dimension of state by e^(-i angles_j).
+    """Multiply the jth component of state by e^(-i angles_j).
 
     This function is inapplicable for real vector spaces.
+
+    If angles and state have batch dimensions, then both
+    batch dimensions should be identical. In this case, each batch
+    entry of angle acts on each corresponding state batch entry.
+
+    If angles does not have batch dimensions but state does, then
+    the same angles are applied to every state in the batch.
+
+    # TODO: clarify more possible batching cases.
 
     Args:
         angles: Size (*batch dims, Hilbert space dim)

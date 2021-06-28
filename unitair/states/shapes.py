@@ -87,7 +87,35 @@ def get_qubit_indices(
         state_tensor: torch.Tensor,
         num_qubits: int
 ):
-    """Convert qubit indices 0, ..., n-1 to correct PyTorch tensor indices."""
+    """Convert qubit indices 0, ..., n-1 to correct PyTorch tensor indices.
+
+    Consider a state with 2 qubits in tensor format (with complex field). If
+    there are no batch dimensions, then the torch.Size will be (2, 2, 2). The
+    first dimension (with torch index 0) refers to the real and imaginary parts
+    while the last two refer to qubits. If we assign the first and second
+    qubits "qubit indices" 0 and 1 respectively, then the torch indices of
+    (0 and 1) are (1 and 2) respectively.
+
+    If there are batch dimensions, a similar issue arises: a batch of states
+    in tensor layout may have dimension (500, 17, 2, 2, 2) but only have two
+    qubits. In this case, the torch index of qubit 0 is 3 and the torch index
+    of qubit 1 is 4.
+
+    Examples:
+        >>> state = torch.rand(2, 2, 2)
+        >>> get_qubit_indices(0, state, num_qubits=2)
+        1
+        >>> state = torch.rand(500, 17, 2, 2, 2)
+        >>> get_qubit_indices(0, state, num_qubits=2)
+        3
+        >>> state = torch.rand(500, 17, 2, 2, 2)
+        >>> get_qubit_indices([1, 0], state, num_qubits=2)
+        [4, 3]
+        >>> # Negative indices behave as expected:
+        >>> state = torch.rand(500, 17, 2, 2, 2)
+        >>> get_qubit_indices(-1, state, num_qubits=2)
+        -1
+    """
     batch_dims = state_tensor.dim() - num_qubits
     range_message = 'Expected index in {-num_qubits, ..., num_qubits - 1}.\n'
     range_message += f'Num_qubits: {num_qubits}, index: {index}.'
@@ -103,17 +131,7 @@ def get_qubit_indices(
     if convert:
         return index.tolist()
     else:
-        return convert
-
-    # # Assume now that index is an int
-    # if 0 <= index < num_qubits:
-    #     # possible complex dimension is included as a batch dim.
-    #
-    #     return index + batch_dims
-    # elif -num_qubits <= index < 0:
-    #     return index
-    # else:
-    #     raise ValueError(range_message)
+        return index
 
 
 class StateShapeError(ValueError):

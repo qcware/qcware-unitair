@@ -43,7 +43,7 @@ def act_first_qubit(
 
     state_tensor = states.to_tensor_layout(state)
     state_tensor = act_first_qubit_tensor(
-        single_qubit_operator, state_tensor, field
+        single_qubit_operator, state_tensor, num_qubits, field
     )
     return states.to_vector_layout(state_tensor, num_qubits=num_qubits)
 
@@ -51,19 +51,25 @@ def act_first_qubit(
 def act_first_qubit_tensor(
         single_qubit_operator: torch.Tensor,
         state_tensor: torch.Tensor,
-        field: Field = Field.COMPLEX
+        num_qubits: int,
+        field: Field = Field.COMPLEX,
 ):
     """Apply a single qubit operator on the first qubit.
 
-    TODO: apply batching. This may be easier for act_last_qubit...
     """
+    # TODO: document added batching
+    # TODO: consider using a decorator for flipping the batch dimensions.
     field = Field(field.lower())
+    num_batch_dims = states.count_batch_dims_tensor(
+        state_tensor, num_qubits, field)
+
+    state_tensor = states.subset_roll_to_back(state_tensor, num_batch_dims)
 
     def act(operator, tensor):
         return torch.einsum('ab, b... -> a...', operator, tensor)
 
     if field is Field.REAL:
-        return act(single_qubit_operator, state_tensor)
+        result_batch_flipped = act(single_qubit_operator, state_tensor)
 
     elif field is Field.COMPLEX:
         real_tens = (
@@ -74,9 +80,12 @@ def act_first_qubit_tensor(
                 act(single_qubit_operator[0], state_tensor[1])
                 + act(single_qubit_operator[1], state_tensor[0])
         )
-        return torch.stack((real_tens, imag_tens), dim=0)
+        result_batch_flipped = torch.stack((real_tens, imag_tens), dim=0)
     else:
         assert False, f"Impossible enumeration{field}"
+
+    return states.subset_roll_to_front(result_batch_flipped, num_batch_dims)
+
 
 
 def act_last_qubit(
@@ -234,6 +243,7 @@ def apply_all_qubits(
 
         field:
     """
+    # TODO: document new batching
     num_qubits = states.count_qubits(state)
     state_tensor = states.to_tensor_layout(state)
     state_tensor = apply_all_qubits_tensor(
@@ -265,6 +275,7 @@ def apply_all_qubits_tensor(
 
         field:
     """
+    # TODO: document new batching
     unitary_error_message = (
         "apply_all_qubits is meant for applying a 2 by 2 matrix\n"
         "on each qubit for a vector on num_bits qubits. Shape should be\n"
@@ -281,12 +292,16 @@ def apply_all_qubits_tensor(
     if gate_size != list(gate.size()):
         raise ValueError(unitary_error_message)
 
-    state_tensor = act_first_qubit_tensor(gate, state_tensor, field=field)
+    state_tensor = act_first_qubit_tensor(
+        gate, state_tensor, num_qubits=num_qubits, field=field
+    )
     for i in range(1, num_qubits):
         state_tensor = swap_tensor(
             state_tensor, qubit_pair=(0, i), num_qubits=num_qubits
         )
-        state_tensor = act_first_qubit_tensor(gate, state_tensor, field=field)
+        state_tensor = act_first_qubit_tensor(
+            gate, state_tensor, num_qubits=num_qubits, field=field
+        )
 
     state_tensor = roll_qubits_tensor(
         state_tensor, num_qubits, num_steps=-1
@@ -325,7 +340,9 @@ def apply_to_qubits_tensor(
 
     for gate, q in zip(operators, qubits):
         state_tensor = swap_tensor(state_tensor, (0, q), num_qubits)
-        state_tensor = act_first_qubit_tensor(gate, state_tensor, field)
+        state_tensor = act_first_qubit_tensor(
+            gate, state_tensor, num_qubits, field
+        )
         state_tensor = swap_tensor(state_tensor, (0, q), num_qubits)
     return state_tensor
 
@@ -414,18 +431,20 @@ def roll_qubits_tensor(
 
         num_steps: Number of indices to cycle.
     """
+    # TODO: document new batching
+    num_batch_dims = states.count_batch_dims_tensor(
+        state_tensor, num_qubits, field)
     field = Field(field.lower())
     num_steps = num_steps % num_qubits
     if num_steps == 0:
         return state_tensor
-
     if field is Field.REAL:
-        identity = list(range(num_qubits))
+        identity = list(range(num_batch_dims, num_batch_dims + num_qubits))
         perm = identity[-num_steps:] + identity[:-num_steps]
     else:
-        identity = list(range(1, num_qubits + 1))
-        perm = [0] + identity[-num_steps:] + identity[:-num_steps]
-
+        identity = list(range(1 + num_batch_dims, num_qubits + 1 + num_batch_dims))
+        perm = [num_batch_dims] + identity[-num_steps:] + identity[:-num_steps]
+    perm = list(range(num_batch_dims))+perm
     return state_tensor.permute(perm)
 
 

@@ -53,6 +53,7 @@ def hilbert_space_dim(state: torch.Tensor):
     return 2 ** count_qubits(state)
 
 
+# TODO: batch dimension are problematic here
 def count_qubits_tensor(
         state_tensor: torch.Tensor, field: Field = Field.COMPLEX
 ):
@@ -64,6 +65,22 @@ def count_qubits_tensor(
         return state_tensor.dim() - 1
     else:
         assert False
+
+
+def count_batch_dims_tensor(
+        state_tensor: torch.Tensor,
+        num_qubits: int,
+        field: Field = Field.COMPLEX
+):
+    """Count the number of batch dimensions for a state in tensor layout.
+
+    This function uses the convention that the dimension for the real and
+    imaginary parts of the state is not considered to be a batch dimension.
+    """
+    num_batch_dims = state_tensor.dim() - num_qubits
+    if field is Field.COMPLEX:
+        num_batch_dims -= 1
+    return num_batch_dims
 
 
 def real_imag(state: torch.Tensor):
@@ -116,6 +133,7 @@ def get_qubit_indices(
         >>> get_qubit_indices(-1, state, num_qubits=2)
         -1
     """
+    # batch_dims here includes the real/imag dimension.
     batch_dims = state_tensor.dim() - num_qubits
     range_message = 'Expected index in {-num_qubits, ..., num_qubits - 1}.\n'
     range_message += f'Num_qubits: {num_qubits}, index: {index}.'
@@ -132,6 +150,34 @@ def get_qubit_indices(
         return index.tolist()
     else:
         return index
+
+
+def subset_roll_to_back(tensor: torch.Tensor, subset_num_dims):
+    """Transpose front indices to the end of `tensor`.
+
+    Examples:
+        >>> x = torch.rand(4, 5, 6, 7, 8, 9)
+        >>> subset_roll_to_back(x, 2).size()
+        torch.Size([6, 7, 8, 9, 4, 5])
+    """
+    complement_range = range(subset_num_dims, tensor.dim())
+    subset_range = range(subset_num_dims)
+    perm = list(complement_range) + list(subset_range)
+    return torch.permute(tensor, perm)
+
+
+def subset_roll_to_front(tensor: torch.Tensor, subset_num_dims):
+    """Transpose back indices to the front of `tensor`.
+
+    Examples:
+        >>> x = torch.rand(4, 5, 6, 7, 8, 9)
+        >>> subset_roll_to_front(x, 2).size()
+        torch.Size([8, 9, 4, 5, 6, 7])
+    """
+    subset_range = range(tensor.dim() - subset_num_dims, tensor.dim())
+    complement_range = range(tensor.dim() - subset_num_dims)
+    perm = list(subset_range) + list(complement_range)
+    return torch.permute(tensor, perm)
 
 
 class StateShapeError(ValueError):

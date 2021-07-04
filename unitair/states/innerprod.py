@@ -7,14 +7,16 @@ from . import shapes
 def abs_squared(state: torch.Tensor, field: Field = Field.COMPLEX):
     """Compute the vector of measurement probabilities for state.
 
-    todo: batching implemented
-
     Args:
-        state:
-        field:
+        state (Tensor): State or batch of states in vector layout. Tensor size
+            can be (*batch_dims, 2, 2^n) or (*batch_dims, 2^n) for the real
+            and complex cases.
+
+        field (Field): Field of `state`.
 
     Returns:
-
+        Tensor with size (*batch_dims, 2^n) giving all measurement
+        probabilities for all states in the batch.
     """
     field = Field(field.lower())
     if field is Field.COMPLEX:
@@ -26,9 +28,21 @@ def abs_squared(state: torch.Tensor, field: Field = Field.COMPLEX):
 
 
 def norm_squared(state: torch.Tensor, field: Field = Field.COMPLEX):
-    """Compute < state | state >.
+    """Compute the L^2 norm-squared < state | state >.
 
-    todo: confirm batching functionality
+    `state` can be a batch of states. The L^2 norm is used in the real and
+    complex case.
+
+    Args:
+        state (Tensor): State or batch of states in vector layout. Tensor size
+            can be (*batch_dims, 2, 2^n) or (*batch_dims, 2^n) for the real
+            and complex cases.
+
+        field (Field): Field of `state`.
+
+    Returns:
+        Tensor with size (*batch_dims,) giving the squared norm of every state
+        in the batch.
     """
     field = Field(field.lower())
     return torch.sum(abs_squared(state, field=field), dim=-1)

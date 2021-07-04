@@ -221,14 +221,14 @@ def act_first_qubits_tensor(
 
 
 def apply_all_qubits(
-        gate: torch.Tensor,
+        operator: torch.Tensor,
         state: torch.Tensor,
         field: Field = Field.COMPLEX
 ) -> torch.Tensor:
     """Apply the same single-qubit operator to each qubit of specified state.
 
     Args:
-        gate: Tensor with size (2, 2) or (2, 2, 2) defining a real or
+        operator: Tensor with size (2, 2) or (2, 2, 2) defining a real or
             complex 2 by 2 matrix which will act on every qubit.
             In complex case, the first dimension is for the real and
             imaginary parts:
@@ -247,13 +247,13 @@ def apply_all_qubits(
     num_qubits = states.count_qubits(state)
     state_tensor = states.to_tensor_layout(state)
     state_tensor = apply_all_qubits_tensor(
-        gate, state_tensor, num_qubits=num_qubits, field=field
+        operator, state_tensor, num_qubits=num_qubits, field=field
     )
     return states.to_vector_layout(state_tensor, num_qubits=num_qubits)
 
 
 def apply_all_qubits_tensor(
-        gate: torch.Tensor,
+        operator: torch.Tensor,
         state_tensor: torch.Tensor,
         num_qubits: int,
         field: Field = Field.COMPLEX
@@ -261,7 +261,7 @@ def apply_all_qubits_tensor(
     """Apply one single-qubit operator to each qubit of state in tensor layout.
 
     Args:
-        gate: Tensor with size (2, 2) or (2, 2, 2) defining a real or
+        operator: Tensor with size (2, 2) or (2, 2, 2) defining a real or
             complex 2 by 2 matrix which will act on every qubit.
             In complex case, the first dimension is for the real and
             imaginary parts:
@@ -289,18 +289,18 @@ def apply_all_qubits_tensor(
     else:
         gate_size = [2, 2, 2]
 
-    if gate_size != list(gate.size()):
+    if gate_size != list(operator.size()):
         raise ValueError(unitary_error_message)
 
     state_tensor = act_first_qubit_tensor(
-        gate, state_tensor, num_qubits=num_qubits, field=field
+        operator, state_tensor, num_qubits=num_qubits, field=field
     )
     for i in range(1, num_qubits):
         state_tensor = swap_tensor(
             state_tensor, qubit_pair=(0, i), num_qubits=num_qubits
         )
         state_tensor = act_first_qubit_tensor(
-            gate, state_tensor, num_qubits=num_qubits, field=field
+            operator, state_tensor, num_qubits=num_qubits, field=field
         )
 
     state_tensor = roll_qubits_tensor(
@@ -311,16 +311,20 @@ def apply_all_qubits_tensor(
 
 
 def apply_to_qubits(
-        gates: Iterable[torch.Tensor],
+        operators: Iterable[torch.Tensor],
         qubits: Iterable[int],
         state: torch.Tensor,
         field: Union[Field, str] = Field.COMPLEX
 ):
-    """Apply single qubit gates to specified qubits of state."""
+    """Apply single-qubit gates to specified qubits of state in vector layout.
+
+    This function applies an iterable of gates to an iterable of respective
+    qubits.
+    """
     num_qubits = states.count_qubits(state)
     state_tensor = states.to_tensor_layout(state)
     state_tensor = apply_to_qubits_tensor(
-        gates, qubits, state_tensor, num_qubits, field
+        operators, qubits, state_tensor, num_qubits, field
     )
     return states.to_vector_layout(state_tensor, num_qubits=num_qubits)
 

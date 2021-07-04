@@ -44,7 +44,7 @@ class UnitaryOperatorCases(unittest.TestCase):
             final_1 = sim.apply_all_qubits(rot, init_state)
 
             final_2 = sim.apply_to_qubits(
-                    gates=[rot for _ in range(n)],
+                    operators=[rot for _ in range(n)],
                     qubits=range(n),
                     state=init_state
                 )

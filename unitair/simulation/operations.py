@@ -330,16 +330,14 @@ def apply_to_qubits(
 
 
 def apply_to_qubits_tensor(
-        operators: Union[Iterable[torch.Tensor], torch.Tensor],
-        qubits: Union[Iterable[int], int],
+        operators: Union[Iterable[torch.Tensor]],
+        qubits: Union[Iterable[int]],
         state_tensor: torch.Tensor,
         num_qubits: int,
         field: Field = Field.COMPLEX
 ):
     """Apply single qubit gates to specified qubits of state in tensor layout.
     """
-    if type(qubits) == int and type(operators) == torch.Tensor:
-        return apply_to_qubits([operators], [qubits], state_tensor, field)
     field = Field(field.lower())
 
     for gate, q in zip(operators, qubits):

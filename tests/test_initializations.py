@@ -6,6 +6,7 @@ from hypothesis import given
 import hypothesis.strategies as st
 from tests.hypothesis_strategies import sizes
 from unitair.states.innerprod import norm_squared
+from unitair.states.shapes import real_imag
 
 
 @given(
@@ -39,9 +40,8 @@ def test_uniform_superposition(num_qubits, batch_dims):
 
     assert state.size() == batch_dims + (2, 2**num_qubits)
 
-    expected_value = torch.tensor(2 ** (-num_qubits/2.))
-    assert state.isclose(expected_value).all()
-
-
-
-
+    expected_value_real = torch.tensor(2 ** (-num_qubits/2.))
+    expected_value_imag = torch.tensor(0.)
+    real, imag = real_imag(state)
+    assert real.isclose(expected_value_real).all()
+    assert imag.isclose(expected_value_imag).all()

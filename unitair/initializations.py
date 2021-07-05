@@ -35,6 +35,13 @@ def rand_state(
         field: Union[Field, str] = Field.COMPLEX,
         requires_grad: bool = False
 ) -> torch.Tensor:
+    """Create a normalized random state in vector layout.
+
+    States are uniformly distributed on the unit sphere in C^N where N = 2^n.
+
+    When batch_dims is provided, a batch of random states is generated with
+    specified shape.
+    """
     if batch_dims is None:
         batch_dims = torch.Size()
     else:
@@ -52,7 +59,7 @@ def rand_state(
     state_num_dims = len(size)
 
     size = batch_dims + size
-    state = torch.rand(
+    state = torch.randn(
         size,
         device=device,
         requires_grad=requires_grad

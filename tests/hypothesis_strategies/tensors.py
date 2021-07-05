@@ -235,3 +235,20 @@ def state_vectors_no_batch(
         max_num_qubits=max_num_qubits,
         field=field,
     )
+
+
+@st.composite
+def sizes(
+        draw,
+        min_num_dims: int = 0,
+        max_num_dims: int = 3,
+        min_index_range: int = 1,
+        max_index_range: int = 6,
+):
+    """Strategy for torch.Size objects."""
+    size = draw(st.lists(
+        elements=st.integers(min_index_range, max_index_range),
+        min_size=min_num_dims,
+        max_size=max_num_dims
+    ))
+    return torch.Size(size)

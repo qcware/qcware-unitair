@@ -85,6 +85,8 @@ def count_batch_dims_tensor(
 
 def real_imag(state: torch.Tensor):
     """Extract the real and imaginary parts of a state in vector layout.
+
+    This function is compatible with arbitrary batch dimensions.
     """
     real = state.select(dim=-2, index=0)
     imag = state.select(dim=-2, index=1)

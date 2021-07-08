@@ -18,6 +18,9 @@ class Field(str, enum.Enum):
 def count_qubits(state: torch.Tensor):
     """Get the number of qubits of a state in vector layout.
 
+    This function works for complex and real cases and it is compatible
+    with arbitrary batch dimensions.
+
     Args:
         state: State (or batch of states) in vector layout.
 

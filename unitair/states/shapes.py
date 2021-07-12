@@ -156,7 +156,8 @@ def get_qubit_indices(
     else:
         return index
 
-
+# TODO: This function doesn't necessarily apply to states only so it would
+#   be sensible to move it to utils or something.
 def subset_roll_to_back(tensor: torch.Tensor, subset_num_dims):
     """Transpose front indices to the end of `tensor`.
 

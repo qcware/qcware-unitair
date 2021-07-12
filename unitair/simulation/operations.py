@@ -49,43 +49,61 @@ def act_first_qubit(
 
 
 def act_first_qubit_tensor(
-        single_qubit_operator: torch.Tensor,
+        operator: torch.Tensor,
         state_tensor: torch.Tensor,
         num_qubits: int,
-        field: Field = Field.COMPLEX,
+        field: Field = Field.COMPLEX
 ):
-    """Apply a single qubit operator on the first qubit.
+    """Apply an operator to the first qubit of a state in tensor layout.
 
+    When used without batches, `operator` is a single-qubit operator specified
+    by a tensor of size (2, 2, 2) in the complex
+    case and (2, 2) in the real case. `state_tensor` is a state
+    in tensor layout. The operator acts on the first qubit returning a
+    new state in tensor layout.
+
+    Both operator and state_tensor can have batch dimensions, but batch
+    dimensions must be compatible.
+
+    Common batching cases:
+        `operator` and `state_tensor` have the same batch dimensions:
+            In this case, each batch entry of `operator` acts on the
+            corresponding entry of `state_tensor`.
+
+        `operator` has no batch dimensions but `state_tensor` does:
+            In this case, the same operator acts on every state_tensor
+            in the batch.
     """
-    # TODO: document added batching
-    # TODO: consider using a decorator for flipping the batch dimensions.
     field = Field(field.lower())
-    num_batch_dims = states.count_batch_dims_tensor(
+    state_n_batch_dims = states.count_batch_dims_tensor(
         state_tensor, num_qubits, field)
+    if field is Field.COMPLEX:
+        op_n_batch_dims = operator.dim() - 3
+    else:
+        op_n_batch_dims = operator.dim() - 2
 
-    state_tensor = states.subset_roll_to_back(state_tensor, num_batch_dims)
+    state_tensor = states.subset_roll_to_back(state_tensor, state_n_batch_dims)
+    operator = states.subset_roll_to_back(operator, op_n_batch_dims)
 
-    def act(operator, tensor):
-        return torch.einsum('ab, b... -> a...', operator, tensor)
+    def act(op, tensor):
+        return torch.einsum('ab..., b... -> a...', op, tensor)
 
     if field is Field.REAL:
-        result_batch_flipped = act(single_qubit_operator, state_tensor)
+        result_batch_flipped = act(operator, state_tensor)
 
     elif field is Field.COMPLEX:
-        real_tens = (
-                act(single_qubit_operator[0], state_tensor[0])
-                - act(single_qubit_operator[1], state_tensor[1])
-        )
-        imag_tens = (
-                act(single_qubit_operator[0], state_tensor[1])
-                + act(single_qubit_operator[1], state_tensor[0])
-        )
+        real_op = operator[0]
+        imag_op = operator[1]
+        real_state = state_tensor[0]
+        imag_state = state_tensor[1]
+        real_tens = (act(real_op, real_state) - act(imag_op, imag_state))
+        imag_tens = (act(real_op, imag_state) + act(imag_op, real_state))
+
         result_batch_flipped = torch.stack((real_tens, imag_tens), dim=0)
     else:
         assert False, f"Impossible enumeration{field}"
 
-    return states.subset_roll_to_front(result_batch_flipped, num_batch_dims)
-
+    return states.subset_roll_to_front(result_batch_flipped, state_n_batch_dims)
 
 
 def act_last_qubit(

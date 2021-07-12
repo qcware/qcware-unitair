@@ -2,6 +2,7 @@ from typing import Iterable, Tuple, Union, Optional
 import torch
 from unitair.states import Field
 import unitair.states as states
+from .utils import count_gate_batch_dims
 
 
 def apply_phase(angles: torch.Tensor, state: torch.Tensor):
@@ -77,10 +78,7 @@ def act_first_qubit_tensor(
     field = Field(field.lower())
     state_n_batch_dims = states.count_batch_dims_tensor(
         state_tensor, num_qubits, field)
-    if field is Field.COMPLEX:
-        op_n_batch_dims = operator.dim() - 3
-    else:
-        op_n_batch_dims = operator.dim() - 2
+    op_n_batch_dims = count_gate_batch_dims(operator, field)
 
     state_tensor = states.subset_roll_to_back(state_tensor, state_n_batch_dims)
     operator = states.subset_roll_to_back(operator, op_n_batch_dims)
@@ -92,18 +90,21 @@ def act_first_qubit_tensor(
         result_batch_flipped = act(operator, state_tensor)
 
     elif field is Field.COMPLEX:
-        real_op = operator[0]
-        imag_op = operator[1]
-        real_state = state_tensor[0]
-        imag_state = state_tensor[1]
-        real_tens = (act(real_op, real_state) - act(imag_op, imag_state))
-        imag_tens = (act(real_op, imag_state) + act(imag_op, real_state))
+        real_tens = (
+                act(operator[0], state_tensor[0])
+                - act(operator[1], state_tensor[1])
+        )
+        imag_tens = (
+                act(operator[0], state_tensor[1])
+                + act(operator[1], state_tensor[0])
+        )
 
         result_batch_flipped = torch.stack((real_tens, imag_tens), dim=0)
     else:
         assert False, f"Impossible enumeration{field}"
 
-    return states.subset_roll_to_front(result_batch_flipped, state_n_batch_dims)
+    return states.subset_roll_to_front(
+        result_batch_flipped, state_n_batch_dims)
 
 
 def act_last_qubit(
@@ -198,14 +199,21 @@ def act_first_qubits(
             f'{num_qubits} qubit(s).'
         )
     state_tensor = states.to_tensor_layout(state)
-    state_tensor = act_first_qubits_tensor(operator, state_tensor, field,
-                                    gate_num_qubits=gate_num_qubits)
+    state_tensor = act_first_qubits_tensor(
+        operator=operator,
+        state_tensor=state_tensor,
+        num_qubits=num_qubits,
+        field=field,
+        gate_num_qubits=gate_num_qubits
+    )
     return states.to_vector_layout(state_tensor, num_qubits=num_qubits)
 
 
+# TODO: We should be able to address batching here just as we did for single qubit gates.
 def act_first_qubits_tensor(
         operator: torch.Tensor,
         state_tensor: torch.Tensor,
+        num_qubits: int,
         field: Field = Field.COMPLEX,
         gate_num_qubits: Optional[int] = None,
 ):
@@ -214,15 +222,25 @@ def act_first_qubits_tensor(
         gate_num_qubits = states.count_qubits_gate_matrix(operator)
 
     gate_dim = 2 ** gate_num_qubits
-    def act(operator, tensor):
+
+    state_n_batch_dims = states.count_batch_dims_tensor(
+        state_tensor, num_qubits, field
+    )
+    op_n_batch_dims = count_gate_batch_dims(operator, field)
+    state_batch_dims = state_tensor.size()[:state_n_batch_dims]
+
+    state_tensor = states.subset_roll_to_back(state_tensor, state_n_batch_dims)
+    operator = states.subset_roll_to_back(operator, op_n_batch_dims)
+
+    def act(op, tensor):
         old_size = tensor.size()
-        new_size = (gate_dim,) + (tensor.dim() - gate_num_qubits) * (2,)
+        new_size = (gate_dim,) + (num_qubits - gate_num_qubits) * (2,) + state_batch_dims
         tensor_view = tensor.view(new_size)
-        result = torch.einsum('ab, b... -> a...', operator, tensor_view)
+        result = torch.einsum('ab..., b... -> a...', op, tensor_view)
         return result.view(old_size)
 
     if field is Field.REAL:
-        return act(operator, state_tensor)
+        result_batch_flipped = act(operator, state_tensor)
 
     elif field is Field.COMPLEX:
         real_tens = (
@@ -233,9 +251,12 @@ def act_first_qubits_tensor(
                 act(operator[0], state_tensor[1])
                 + act(operator[1], state_tensor[0])
         )
-        return torch.stack((real_tens, imag_tens), dim=0)
+        result_batch_flipped = torch.stack((real_tens, imag_tens), dim=0)
     else:
         assert False, f"Impossible enumeration{field}"
+
+    return states.subset_roll_to_front(
+        result_batch_flipped, state_n_batch_dims)
 
 
 def apply_all_qubits(

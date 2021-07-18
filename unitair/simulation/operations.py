@@ -315,21 +315,7 @@ def apply_all_qubits_tensor(
         field:
     """
     # TODO: document new batching
-    unitary_error_message = (
-        "apply_all_qubits is meant for applying a 2 by 2 matrix\n"
-        "on each qubit for a vector on num_bits qubits. Shape should be\n"
-        "(2, 2, 2) in the complex case or (2, 2) in the real case. "
-        "In the complex case,\nthe first dimension is for the real and "
-        "imaginary parts."
-    )
     field = Field(field.lower())
-    if field is Field.REAL:
-        gate_size = [2, 2]
-    else:
-        gate_size = [2, 2, 2]
-
-    if gate_size != list(operator.size()):
-        raise ValueError(unitary_error_message)
 
     state_tensor = act_first_qubit_tensor(
         operator, state_tensor, num_qubits=num_qubits, field=field

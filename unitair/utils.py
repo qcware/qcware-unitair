@@ -11,6 +11,8 @@ def int_to_bin(
 ):
     if x >= 2 ** num_bits:
         raise ValueError(f"Insufficient bits to store integer {x}.")
+    if x < 0:
+        raise ValueError(f"Expected a nonnegative integer, found {x}.")
 
     bin_format = [int(d) for d in str(bin(x))[2:]]
     padding_size = num_bits - len(bin_format)

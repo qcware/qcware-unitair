@@ -9,13 +9,11 @@ from .states import Field
 
 def unit_vector(
         index: int, dim: int,
-        device: torch.device = None,
+        device: torch.device = torch.device("cpu"),
         field: Field = Field.COMPLEX,
         dtype: torch.dtype = torch.float
 ):
     """Create a real or complex unit vector in a Hilbert space."""
-    if device is None:
-        device = unitair.get_default_device()
     field = Field(field.lower())
     if field is Field.REAL:
         vector = torch.zeros(dim, device=device, dtype=dtype)
@@ -31,7 +29,7 @@ def unit_vector(
 def rand_state(
         num_qubits,
         batch_dims: Optional[Sequence] = None,
-        device: torch.device = None,
+        device: torch.device = torch.device("cpu"),
         field: Union[Field, str] = Field.COMPLEX,
         requires_grad: bool = False
 ) -> torch.Tensor:
@@ -47,8 +45,6 @@ def rand_state(
     else:
         batch_dims = torch.Size(batch_dims)
     field = Field(field.lower())
-    if device is None:
-        device = unitair.get_default_device()
 
     if field is Field.COMPLEX:
         size = (2, 2 ** num_qubits)
@@ -72,7 +68,7 @@ def rand_state(
 def uniform_superposition(
         num_qubits: int,
         batch_dims: Optional[Sequence] = None,
-        device: torch.device = None,
+        device: torch.device = torch.device("cpu"),
         requires_grad: bool = False
 ):
     """Create the uniform superposition state |+...+>.
@@ -81,8 +77,6 @@ def uniform_superposition(
     dimensions can be provided in which case the same uniform superposition
     is copied to form a batch with specified shape.
     """
-    if device is None:
-        device = unitair.get_default_device()
     real = 2**(-num_qubits/2.) * torch.ones(2**num_qubits, device=device)
     imag = torch.zeros(2**num_qubits, device=device)
     state = torch.stack((real, imag), dim=0)

@@ -1,7 +1,6 @@
 import torch
 import decorator
 from typing import Optional
-from unitair import get_default_device
 
 
 @decorator.decorator
@@ -16,7 +15,7 @@ def parameterized_gate(gate_function, *args):
     params = args[0]
     squeeze = False
     if not isinstance(params, torch.Tensor):
-        params = torch.tensor([float(params)], device=get_default_device())
+        params = torch.tensor([float(params)], device=torch.device("cpu"))
         squeeze = True
     elif params.dim() == 0:
         params = params.unsqueeze(0)
@@ -37,7 +36,7 @@ def parameterized_gate(gate_function, *args):
 def constant_gate(gate_function, real_or_imag: Optional[str] = None, *args):
     device = args[0]
     if device is None:
-        device = get_default_device()
+        device = torch.device("cpu")
     gate = torch.tensor(gate_function(), device=device)
     if real_or_imag is None:
         return gate

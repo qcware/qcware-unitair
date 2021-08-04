@@ -3,11 +3,16 @@ from typing import Optional
 import unitair
 
 
-def int_to_bin(x: int, num_bits: int, str_output: bool = False, device: Optional[torch.device] = None):
+def int_to_bin(
+        x: int,
+        num_bits: int,
+        str_output: bool = False,
+        device: torch.device = torch.device("cpu")
+):
     if x >= 2 ** num_bits:
         raise ValueError(f"Insufficient bits to store integer {x}.")
-    if device is None:
-        device = unitair.get_default_device()
+    if x < 0:
+        raise ValueError(f"Expected a nonnegative integer, found {x}.")
 
     bin_format = [int(d) for d in str(bin(x))[2:]]
     padding_size = num_bits - len(bin_format)

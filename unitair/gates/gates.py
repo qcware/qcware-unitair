@@ -7,6 +7,9 @@ from .gate_constrcution import parameterized_gate, constant_gate
 def exp_x(angle: Union[torch.Tensor, float]):
     """Get the operator e^(-i angle X).
 
+    PyTorch device is inherited from the device of `angle`. If `angle` is
+    a float, CPU is used.
+
     Args:
         angle: Tensor with size (batch_length,) or just ().
 
@@ -31,6 +34,9 @@ def exp_x(angle: Union[torch.Tensor, float]):
 def exp_y(angle: Union[torch.Tensor, float]):
     """Get the operator e^(-i angle Y).
 
+    PyTorch device is inherited from the device of `angle`. If `angle` is
+    a float, CPU is used.
+
     Args:
         angle: Tensor with size (batch_length,) or just ().
 
@@ -54,6 +60,9 @@ def exp_y(angle: Union[torch.Tensor, float]):
 @parameterized_gate
 def exp_z(angle: Union[torch.Tensor, float]):
     """Get the operator e^(-i angle Z).
+
+    PyTorch device is inherited from the device of `angle`. If `angle` is
+    a float, CPU is used.
 
     Args:
         angle: Tensor with size (batch_length,) or just ().
@@ -80,8 +89,7 @@ def pauli_x(device: Optional[torch.device] = None):
     """Get the Pauli X operator.
 
     Args:
-        device: If the torch device is not specified, the default device
-            will be used.
+        device: If the torch device is not specified, CPU is used.
     """
     return [
         [0., 1.],
@@ -94,8 +102,7 @@ def pauli_y(device: Optional[torch.device] = None):
     """Get the Pauli Y operator.
 
     Args:
-        device: If the torch device is not specified, the default device
-            will be used.
+        device: If the torch device is not specified, CPU is used.
     """
     return [
         [0., -1.],
@@ -108,8 +115,7 @@ def pauli_z(device: Optional[torch.device] = None):
     """Get the Pauli Z operator.
 
     Args:
-        device: If the torch device is not specified, the default device
-            will be used.
+        device: If the torch device is not specified, CPU is used.
     """
     return [
         [1., 0.],
@@ -122,8 +128,7 @@ def cnot(device: Optional[torch.device] = None):
     """Get a CNOT gate.
 
     Args:
-        device: If the torch device is not specified, the default device
-            will be used.
+        device: If the torch device is not specified, CPU is used.
     """
     return [
         [1., 0., 0., 0.],

@@ -146,16 +146,16 @@ def act_first_qubits_tensor(
     `operator` represents an operator or batch of operators that act on
     k qubits (with k <= the number of qubits for the state).
 
-   When used without batches, `operator` is a single-qubit operator specified
-   by a tensor of size (2, 2^k, 2^k) in the complex
-   case and (2^k, 2^k) in the real case. `state_tensor` is a state
-   in tensor layout for n qubits. The operator acts on the first k consecutive
-   qubits. A new state in tensor layout is then returned.
+    When used without batches, `operator` is a single-qubit operator specified
+    by a tensor of size (2, 2^k, 2^k) in the complex
+    case and (2^k, 2^k) in the real case. `state_tensor` is a state
+    in tensor layout for n qubits. The operator acts on the first k consecutive
+    qubits. A new state in tensor layout is then returned.
 
-   Both operator and state_tensor can have batch dimensions, but batch
-   dimensions must be compatible.
+    Both operator and state_tensor can have batch dimensions, but batch
+    dimensions must be compatible.
 
-   Common batching cases:
+    Batching cases:
        `operator` and `state_tensor` have the same batch dimensions:
            In this case, each batch entry of `operator` acts on the
            corresponding entry of `state_tensor`.
@@ -213,23 +213,34 @@ def apply_all_qubits(
 ) -> torch.Tensor:
     """Apply the same single-qubit operator to each qubit of specified state.
 
+    Batching cases:
+        `operator` and `state` have the same batch dimensions:
+            In this case, each batch entry of `operator` acts on the
+            first qubit of the corresponding batch entry of `state`.
+
+        `operator` has no batch dimensions but `state` does:
+            In this case, the same operator acts on every state
+            in the batch. In fact, this means that the same operator acts
+            on every qubit of every entry in `state`
+
     Args:
-        operator: Tensor with size (2, 2) or (2, 2, 2) defining a real or
-            complex 2 by 2 matrix which will act on every qubit.
-            In complex case, the first dimension is for the real and
-            imaginary parts:
+        operator: Tensor with size (*batch_dims, 2, 2) or
+            (*batch_dims, 2, 2, 2) defining a real or complex 2 by 2 matrix
+            which will act on every qubit. In complex case, the first dimension
+            is for the real and imaginary parts. For each batch entry `matrix`,
+            this means:
                 matrix = matrix[0] + i matrix[1].
 
         state: State in vector layout. This means that the state is a
-            tensor with size (2^num_bits,) or (2, 2^num_bits) for the
-            real or complex cases respectively.
-            In the complex case with size (2, 2^num_bits), the first dimension
-            is for the real and imaginary parts:
-                state = state[0] + i state[1].
+            tensor with size (*batch_dims, 2^num_bits,) or
+            (*batch_dims, 2, 2^num_bits) for the real or complex cases
+            respectively. In the complex case, the first dimension of each
+            batch entry is for the real and imaginary parts:
+                state = state[0] + i state[1]
+            (where state has no batch dimensions).
 
-        field:
+        field: Specifies whether the Hilbert space is real or complex.
     """
-    # TODO: document new batching
     if states.count_qubits_gate_matrix(operator) != 1:
         raise ValueError(
             f'Expected operator on 1 qubit, found a '

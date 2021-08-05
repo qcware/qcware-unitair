@@ -4,14 +4,18 @@ import torch
 from unitair import Field
 from unitair.simulation.operations import apply_phase
 from unitair.simulation.operations import act_first_qubits
+from unitair.simulation.operations import swap
 
 from unitair.states import count_qubits, count_qubits_gate_matrix
 from math import pi
 
 from hypothesis import given, assume
+import hypothesis.strategies as st
+
 from tests.hypothesis_strategies.specialized import state_and_phase_angles
 from tests.hypothesis_strategies.tensors import operators, state_vectors
 from unitair.simulation.utils import gate_batch_size
+
 
 
 @given(state_and_phase_angles())
@@ -60,4 +64,26 @@ def test_act_first_qubits(op, state):
         field=Field.COMPLEX,
     )
 
+@given(
+    state=state_vectors(max_num_qubits=8),
+    i=st.integers(min_value=0, max_value=8),
+    j=st.integers(min_value=0, max_value=8)
+)
+def test_swap(state, i, j):
+    n = count_qubits(state)
 
+    # These ensure n >= 2 without further assumption.
+    assume(i != j)
+    assume(i < n)
+    assume(j < n)
+
+    state_swapped = swap(state, qubit_pair=(i, j))
+    state_swapped_other_way = swap(state, qubit_pair=(j, i))
+
+    state_double_swapped = swap(state_swapped, qubit_pair=(i, j))
+
+    # test that swap is involutory
+    assert (state == state_double_swapped).all()
+
+    # test that swap is index-symmetrical
+    assert (state_swapped == state_swapped_other_way).all()

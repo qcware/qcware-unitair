@@ -32,81 +32,6 @@ def apply_phase(angles: torch.Tensor, state: torch.Tensor):
     ), dim=-2)
 
 
-# TODO: we probably don't need this anymore because of multi-qubit action.
-def act_first_qubit(
-        single_qubit_operator: torch.Tensor,
-        state: torch.Tensor,
-        field: Field = Field.COMPLEX
-):
-    """Apply a single qubit gate to the first qubit in state."""
-    field = Field(field.lower())
-    num_qubits = states.count_qubits(state)
-
-    state_tensor = states.to_tensor_layout(state)
-    state_tensor = act_first_qubit_tensor(
-        single_qubit_operator, state_tensor, num_qubits, field
-    )
-    return states.to_vector_layout(state_tensor, num_qubits=num_qubits)
-
-
-def act_first_qubit_tensor(
-        operator: torch.Tensor,
-        state_tensor: torch.Tensor,
-        num_qubits: int,
-        field: Field = Field.COMPLEX
-):
-    """Apply an operator to the first qubit of a state in tensor layout.
-
-    When used without batches, `operator` is a single-qubit operator specified
-    by a tensor of size (2, 2, 2) in the complex
-    case and (2, 2) in the real case. `state_tensor` is a state
-    in tensor layout. The operator acts on the first qubit returning a
-    new state in tensor layout.
-
-    Both operator and state_tensor can have batch dimensions, but batch
-    dimensions must be compatible.
-
-    Common batching cases:
-        `operator` and `state_tensor` have the same batch dimensions:
-            In this case, each batch entry of `operator` acts on the
-            corresponding entry of `state_tensor`.
-
-        `operator` has no batch dimensions but `state_tensor` does:
-            In this case, the same operator acts on every state_tensor
-            in the batch.
-    """
-    field = Field(field.lower())
-    state_n_batch_dims = states.count_batch_dims_tensor(
-        state_tensor, num_qubits, field)
-    op_n_batch_dims = count_gate_batch_dims(operator, field)
-
-    state_tensor = states.subset_roll_to_back(state_tensor, state_n_batch_dims)
-    operator = states.subset_roll_to_back(operator, op_n_batch_dims)
-
-    def act(op, tensor):
-        return torch.einsum('ab..., b... -> a...', op, tensor)
-
-    if field is Field.REAL:
-        result_batch_flipped = act(operator, state_tensor)
-
-    elif field is Field.COMPLEX:
-        real_tens = (
-                act(operator[0], state_tensor[0])
-                - act(operator[1], state_tensor[1])
-        )
-        imag_tens = (
-                act(operator[0], state_tensor[1])
-                + act(operator[1], state_tensor[0])
-        )
-
-        result_batch_flipped = torch.stack((real_tens, imag_tens), dim=0)
-    else:
-        assert False, f"Impossible enumeration{field}"
-
-    return states.subset_roll_to_front(
-        result_batch_flipped, state_n_batch_dims)
-
-
 def act_last_qubit(
         single_qubit_operator: torch.Tensor,
         state: torch.Tensor,
@@ -209,7 +134,6 @@ def act_first_qubits(
     return states.to_vector_layout(state_tensor, num_qubits=num_qubits)
 
 
-# TODO: We should be able to address batching here just as we did for single qubit gates.
 def act_first_qubits_tensor(
         operator: torch.Tensor,
         state_tensor: torch.Tensor,
@@ -217,6 +141,29 @@ def act_first_qubits_tensor(
         field: Field = Field.COMPLEX,
         gate_num_qubits: Optional[int] = None,
 ):
+    """Apply operator on first consecutive qubits of a state in tensor layout.
+
+    `operator` represents an operator or batch of operators that act on
+    k qubits (with k <= the number of qubits for the state).
+
+   When used without batches, `operator` is a single-qubit operator specified
+   by a tensor of size (2, 2^k, 2^k) in the complex
+   case and (2^k, 2^k) in the real case. `state_tensor` is a state
+   in tensor layout for n qubits. The operator acts on the first k consecutive
+   qubits. A new state in tensor layout is then returned.
+
+   Both operator and state_tensor can have batch dimensions, but batch
+   dimensions must be compatible.
+
+   Common batching cases:
+       `operator` and `state_tensor` have the same batch dimensions:
+           In this case, each batch entry of `operator` acts on the
+           corresponding entry of `state_tensor`.
+
+       `operator` has no batch dimensions but `state_tensor` does:
+           In this case, the same operator acts on every state_tensor
+           in the batch.
+    """
     field = Field(field.lower())
     if gate_num_qubits is None:
         gate_num_qubits = states.count_qubits_gate_matrix(operator)
@@ -274,7 +221,7 @@ def apply_all_qubits(
                 matrix = matrix[0] + i matrix[1].
 
         state: State in vector layout. This means that the state is a
-            tensor with size (2^num_bits) or (2, 2^num_bits) for the
+            tensor with size (2^num_bits,) or (2, 2^num_bits) for the
             real or complex cases respectively.
             In the complex case with size (2, 2^num_bits), the first dimension
             is for the real and imaginary parts:
@@ -283,6 +230,12 @@ def apply_all_qubits(
         field:
     """
     # TODO: document new batching
+    if states.count_qubits_gate_matrix(operator) != 1:
+        raise ValueError(
+            f'Expected operator on 1 qubit, found a '
+            f'{states.count_qubits_gate_matrix(operator)} qubit operator.'
+        )
+
     num_qubits = states.count_qubits(state)
     state_tensor = states.to_tensor_layout(state)
     state_tensor = apply_all_qubits_tensor(
@@ -317,15 +270,20 @@ def apply_all_qubits_tensor(
     # TODO: document new batching
     field = Field(field.lower())
 
-    state_tensor = act_first_qubit_tensor(
-        operator, state_tensor, num_qubits=num_qubits, field=field
+    state_tensor = act_first_qubits_tensor(
+        operator=operator,
+        state_tensor=state_tensor,
+        num_qubits=num_qubits,
+        field=field,
+        gate_num_qubits=1
     )
     for i in range(1, num_qubits):
         state_tensor = swap_tensor(
             state_tensor, qubit_pair=(0, i), num_qubits=num_qubits
         )
-        state_tensor = act_first_qubit_tensor(
-            operator, state_tensor, num_qubits=num_qubits, field=field
+        state_tensor = act_first_qubits_tensor(
+            operator, state_tensor, num_qubits=num_qubits, field=field,
+            gate_num_qubits=1
         )
 
     state_tensor = roll_qubits_tensor(
@@ -367,8 +325,8 @@ def apply_to_qubits_tensor(
 
     for gate, q in zip(operators, qubits):
         state_tensor = swap_tensor(state_tensor, (0, q), num_qubits)
-        state_tensor = act_first_qubit_tensor(
-            gate, state_tensor, num_qubits, field
+        state_tensor = act_first_qubits_tensor(
+            gate, state_tensor, num_qubits, field, gate_num_qubits=1
         )
         state_tensor = swap_tensor(state_tensor, (0, q), num_qubits)
     return state_tensor
@@ -473,60 +431,3 @@ def roll_qubits_tensor(
         perm = [num_batch_dims] + identity[-num_steps:] + identity[:-num_steps]
     perm = list(range(num_batch_dims))+perm
     return state_tensor.permute(perm)
-
-
-if __name__ == '__main__':
-    from unitair import get_default_device
-    from unitair import gates
-    import time
-    selected_device = get_default_device()
-
-    print('selected device: ', selected_device)
-
-
-    def run_apply_all(n):
-        rot = gates.exp_x(.3)
-        state = torch.rand(2, 2**n)
-        t = time.time()
-        apply_all_qubits(rot, state)
-        return time.time()-t
-
-    def run_apply_to(n):
-        rot = gates.exp_x(.3)
-        state = torch.rand(2, 2**n)
-        t = time.time()
-        apply_to_qubits(
-            gates=[rot for _ in range(n)],
-            qubits=range(n),
-            state=state
-        )
-
-        return time.time()-t
-
-    #
-    # rot = torch.tensor(
-    #     [
-    #         [[0.8718,  0.0000],
-    #          [0.0000,  0.8718]],
-    #
-    #         [[0.0000, -0.4899],
-    #          [-0.4899,  0.0000]]
-    #     ],
-    #     device=selected_device
-    # )
-    # state_ = torch.tensor(
-    #     [[0.1316, 0.1930, 0.1382, 0.0934, 0.3797, 0.2206, 0.3941, 0.0504],
-    #      [0.1461, 0.1924, 0.3403, 0.4453, 0.1680, 0.3133, 0.1078, 0.2376]],
-    #     device=selected_device)
-    #
-    # real_rot = torch.tensor(
-    #     [[[0.871766, -0.489922], [0.489922, 0.871766]], [[0, 0], [0, 0]]],
-    #     device=selected_device
-    # )
-    #
-    # real_state_ = torch.tensor(
-    #     [[0.1316, 0.1930, 0.1382, 0.0934, 0.3797, 0.2206, 0.3941, 0.0504],
-    #      [0, 0, 0, 0, 0, 0, 0, 0.]],
-    #     device=selected_device)
-    #
-    # apply_all_qubits(rot, state_)

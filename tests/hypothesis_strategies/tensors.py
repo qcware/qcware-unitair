@@ -10,6 +10,8 @@ from unitair.states.shapes import Field
 
 import hypothesis.strategies as st
 
+NONZERO_CUT = 1e-6
+
 
 def _norm(x: torch.Tensor, field: Field):
     """Get the norm of a state in vector layout.
@@ -138,7 +140,7 @@ def state_vectors(
     Args:
         draw: Hypothesis draw parameter--ignore this for testing.
         batch_rank_limit: The largest allowed number of batch indices.
-        batch_size_limit: The largest allowed dimension for batch indices.
+        batch_size_limit: The largest allowed dimension for each batch index.
         min_num_qubits: The smallest number of qubits allowed.
         max_num_qubits: The largest number of qubits allowed.
         field: Whether the state is real or complex. If None, the strategy
@@ -168,13 +170,13 @@ def state_vectors(
 
     state_norm = _norm(state, field)
     # Manually try to avoid zero states with a random shift
-    if (state_norm.abs() < 1e-6).any():
+    if (state_norm.abs() < NONZERO_CUT).any():
         state = state + .1 * torch.rand_like(state)
         state_norm = _norm(state, field)
 
     # At this point, we "assume" that the states are all nonzero
     assume(
-        (state_norm.abs() > 1e-6).all()
+        (state_norm.abs() > NONZERO_CUT).all()
     )
     if field is Field.REAL:
         state_norm.unsqueeze_(-1)
@@ -252,3 +254,43 @@ def sizes(
         max_size=max_num_dims
     ))
     return torch.Size(size)
+
+
+@st.composite
+def operators(
+        draw,
+        min_num_qubits: int = 1,
+        max_num_qubits: int = 1,
+        batch_max_num_indices: int = 3,
+        batch_max_index_range: int = 5,
+        field: Optional[Field] = None,
+        nonzero: bool = False
+):
+    if field is None:
+        field = draw(st.sampled_from(Field))
+    batch_dims = draw(
+        sizes(
+            min_num_dims=0,
+            max_num_dims=batch_max_num_indices,
+            min_index_range=1,
+            max_index_range=batch_max_index_range
+        )
+    )
+
+    if field is Field.COMPLEX:
+        field_dims = (2,)
+    else:
+        field_dims = ()
+
+    num_qubits = draw(st.integers(min_num_qubits, max_num_qubits))
+    matrix_dims = (2 ** num_qubits, 2 ** num_qubits)
+
+    all_dims = batch_dims + field_dims + matrix_dims
+
+    result = draw(tensors_size_fixed(shape=all_dims))
+    if nonzero:
+        assume(
+            (result.abs() > NONZERO_CUT).all()
+        )
+    return result
+

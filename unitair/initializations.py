@@ -2,7 +2,6 @@ from typing import Union, Sequence, Optional
 
 import torch
 
-import unitair
 from . import states
 from .states import Field
 

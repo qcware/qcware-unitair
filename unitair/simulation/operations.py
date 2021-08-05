@@ -263,22 +263,32 @@ def apply_all_qubits_tensor(
 ):
     """Apply one single-qubit operator to each qubit of state in tensor layout.
 
+    Batching cases:
+        `operator` and `state_tensor` have the same batch dimensions:
+            In this case, each batch entry of `operator` acts on the
+            first qubit of the corresponding batch entry of `state_tensor`.
+
+        `operator` has no batch dimensions but `state_tensor` does:
+            In this case, the same operator acts on every state
+            in the batch. In fact, this means that the same operator acts
+            on every qubit of every entry in `state_tensor`
+
     Args:
-        operator: Tensor with size (2, 2) or (2, 2, 2) defining a real or
-            complex 2 by 2 matrix which will act on every qubit.
-            In complex case, the first dimension is for the real and
-            imaginary parts:
+        operator: Tensor with size (*batch_dims, 2, 2) or
+            (*batch_dims, 2, 2, 2) defining a real or complex 2 by 2 matrix
+            which will act on every qubit. In complex case, the first dimension
+            is for the real and imaginary parts. For each batch entry `matrix`,
+            this means:
                 matrix = matrix[0] + i matrix[1].
 
-        state_tensor: State in tensor layout. This means that the state is a
-            tensor with size (2, 2, ..., 2) where the number of 2's is
+        state_tensor: State in tensor layout. Size is
+            (*batch_dims, 2, 2, ...,2, 2) where the number of 2's is
             num_qubits or num_qubits + 1 for the real and complex cases.
 
-        num_qubits: The number of qubits for the state.
+        num_qubits: The number of qubits for the quantum state.
 
-        field:
+        field: Specifies whether the Hilbert space is real or complex.
     """
-    # TODO: document new batching
     field = Field(field.lower())
 
     state_tensor = act_first_qubits_tensor(

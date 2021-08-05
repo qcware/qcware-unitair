@@ -287,7 +287,7 @@ def apply_all_qubits_tensor(
         )
 
     state_tensor = roll_qubits_tensor(
-        state_tensor, num_qubits, num_steps=-1
+        state_tensor, num_qubits, num_steps=-1, field=field
     )
 
     return state_tensor

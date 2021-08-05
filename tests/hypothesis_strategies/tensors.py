@@ -294,3 +294,33 @@ def operators(
         )
     return result
 
+
+@st.composite
+def operators_batch_fixed(
+        draw,
+        batch_dims: torch.Size = torch.Size([]),
+        min_num_qubits: int = 1,
+        max_num_qubits: int = 1,
+        field: Optional[Field] = None,
+        nonzero: bool = False
+):
+    if field is None:
+        field = draw(st.sampled_from(Field))
+
+    if field is Field.COMPLEX:
+        field_dims = (2,)
+    else:
+        field_dims = ()
+
+    num_qubits = draw(st.integers(min_num_qubits, max_num_qubits))
+    matrix_dims = (2 ** num_qubits, 2 ** num_qubits)
+
+    all_dims = batch_dims + field_dims + matrix_dims
+
+    result = draw(tensors_size_fixed(shape=all_dims))
+    if nonzero:
+        assume(
+            (result.abs() > NONZERO_CUT).all()
+        )
+    return result
+

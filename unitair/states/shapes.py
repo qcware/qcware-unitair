@@ -14,6 +14,12 @@ class Field(str, enum.Enum):
     REAL = 'real'
     COMPLEX = 'complex'
 
+    def __repr__(self):
+        if self is Field.REAL:
+            return 'Field.REAL'
+        elif self is Field.COMPLEX:
+            return 'Field.COMPLEX'
+
 
 def count_qubits(state: torch.Tensor):
     """Get the number of qubits of a state in vector layout.

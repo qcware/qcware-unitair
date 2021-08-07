@@ -3,6 +3,10 @@ import torch
 from unitair.states import Field
 import unitair.states as states
 from .utils import count_gate_batch_dims
+from unitair.utils import permutation_to_front, inverse_list_permutation
+
+# TODO: should most validation be in the "front-end" vector functions or should
+#  it be in the tensor functions? Many cases here actually validate in both.
 
 
 def apply_phase(angles: torch.Tensor, state: torch.Tensor):
@@ -30,6 +34,81 @@ def apply_phase(angles: torch.Tensor, state: torch.Tensor):
         cos * real + sin * imag,
         -sin * real + cos * imag
     ), dim=-2)
+
+
+# TODO: documentation for apply_operator. This is tested with operator and
+#   state batching in the usual two patterns.
+def apply_operator(
+        operator: torch.Tensor,
+        qubits: Iterable[int],
+        state: torch.Tensor,
+        field: Union[Field, str] = Field.COMPLEX
+):
+    field = Field(field.lower())
+    num_qubits = states.count_qubits(state)
+    qubits = list(qubits)
+    if not set(qubits).issubset(range(num_qubits)):
+        raise ValueError(
+            f'qubits={qubits} is not consistent with state vector with '
+            f'{num_qubits} qubits.'
+        )
+    op_num_qubits = states.count_qubits_gate_matrix(operator)
+    if len(qubits) != op_num_qubits:
+        raise ValueError(
+            f'Cannot apply operator with {op_num_qubits} to the {len(qubits)} '
+            f'qubit sequence {qubits}.'
+        )
+
+    state_tensor = states.to_tensor_layout(state)
+    state_tensor = apply_operator_tensor(
+        operator=operator,
+        qubits=qubits,
+        state_tensor=state_tensor,
+        num_qubits=num_qubits,
+        field=field,
+        operator_num_qubits=op_num_qubits
+    )
+    return states.to_vector_layout(state_tensor, num_qubits=num_qubits)
+
+
+def apply_operator_tensor(
+        operator: torch.Tensor,
+        qubits: Iterable[int],
+        state_tensor: torch.Tensor,
+        num_qubits: int,
+        field: Field = Field.COMPLEX,
+        operator_num_qubits: Optional[int] = None
+):
+    qubits = list(qubits)
+    if operator_num_qubits is None:
+        operator_num_qubits = states.count_qubits_gate_matrix(operator)
+    perm = permutation_to_front(num_qubits, qubits)
+    inv_perm = inverse_list_permutation(perm)
+
+    # Permute qubits to the front
+    state_tensor = permute_qubits_tensor(
+        permutation=perm,
+        state_tensor=state_tensor,
+        num_qubits=num_qubits,
+        contiguous_output=True
+    )
+
+    # Apply operator on the front consecutive qubits
+    state_tensor = act_first_qubits_tensor(
+        operator=operator,
+        state_tensor=state_tensor,
+        num_qubits=num_qubits,
+        field=field,
+        gate_num_qubits=operator_num_qubits
+    )
+
+    # Invert the earlier permutation
+    return permute_qubits_tensor(
+        permutation=inv_perm,
+        state_tensor=state_tensor,
+        num_qubits=num_qubits,
+        contiguous_output=True
+    )
 
 
 def act_last_qubit(
@@ -452,3 +531,63 @@ def roll_qubits_tensor(
         perm = [num_batch_dims] + identity[-num_steps:] + identity[:-num_steps]
     perm = list(range(num_batch_dims))+perm
     return state_tensor.permute(perm)
+
+
+def permute_qubits(
+        permutation: Iterable[int],
+        state_vector: torch.Tensor
+):
+    """Permute qubits for a state in vector layout.
+
+    If `state_vector` has batch dimensions, then the same permutation is
+    applied to all batch entries. In particular, this function does not
+    permute batch indices (use torch.permute for that).
+
+    Args:
+        permutation: Sequence of integers defining a permutation among qubits.
+        state_vector: State in vector layout.
+    """
+    num_qubits = states.count_qubits(state_vector)
+    state_tensor = states.to_tensor_layout(state_vector)
+    permuted_state_tensor = permute_qubits_tensor(
+        permutation=permutation,
+        state_tensor=state_tensor,
+        num_qubits=num_qubits,
+    )
+    return states.to_vector_layout(permuted_state_tensor, num_qubits=num_qubits)
+
+
+def permute_qubits_tensor(
+        permutation: Iterable[int],
+        state_tensor: torch.Tensor,
+        num_qubits: int,
+        contiguous_output: bool = False
+):
+    """Permute qubits for a state in tensor layout.
+
+    If `state_tensor` has batch dimensions, then the same permutation is
+    applied to all batch entries. In particular, this function does not
+    permute batch indices (use torch.permute for that).
+
+    Args:
+        permutation: Sequence of integers defining a permutation among qubits.
+        state_tensor: State in vector layout.
+        num_qubits: Number of qubits for the state.
+        contiguous_output: When True, returns a contiguous copy of the result.
+    """
+    # non_qubit_dims includes the complex dimension in the complex case.
+    non_qubit_dims = state_tensor.dim() - num_qubits
+    identity_perm = tuple(i for i in range(non_qubit_dims))
+
+    permutation = tuple(i + non_qubit_dims for i in permutation)
+
+    state_tensor = torch.permute(state_tensor, identity_perm + permutation)
+    if not contiguous_output:
+        return state_tensor
+    else:
+        return state_tensor.contiguous()
+
+
+
+
+

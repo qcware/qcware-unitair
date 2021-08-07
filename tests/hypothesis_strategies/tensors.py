@@ -264,7 +264,8 @@ def operators(
         batch_max_num_indices: int = 3,
         batch_max_index_range: int = 5,
         field: Optional[Field] = None,
-        nonzero: bool = False
+        nonzero: bool = False,
+        max_abs: Optional[float] = None
 ):
     if field is None:
         field = draw(st.sampled_from(Field))
@@ -292,6 +293,11 @@ def operators(
         assume(
             (result.abs() > NONZERO_CUT).all()
         )
+    if max_abs is not None:
+        assume(
+            (result.abs() < max_abs).all()
+        )
+
     return result
 
 
@@ -302,7 +308,8 @@ def operators_batch_fixed(
         min_num_qubits: int = 1,
         max_num_qubits: int = 1,
         field: Optional[Field] = None,
-        nonzero: bool = False
+        nonzero: bool = False,
+        max_abs: Optional[float] = None
 ):
     if field is None:
         field = draw(st.sampled_from(Field))
@@ -321,6 +328,11 @@ def operators_batch_fixed(
     if nonzero:
         assume(
             (result.abs() > NONZERO_CUT).all()
+        )
+
+    if max_abs is not None:
+        assume(
+            (result.abs() < max_abs).all()
         )
     return result
 

@@ -6,9 +6,10 @@ import torch
 
 from unitair import Field
 from unitair.simulation.operations import apply_phase
+from unitair.simulation.operations import apply_operator
 from unitair.simulation.operations import act_first_qubits
 from unitair.simulation.operations import apply_all_qubits
-from unitair.simulation.operations import swap
+from unitair.simulation.operations import swap, permute_qubits
 
 from unitair.states import count_qubits, count_qubits_gate_matrix
 from math import pi
@@ -41,6 +42,40 @@ def test_apply_phase(data):
         original_state,
         atol=1e-4 + angles.abs().sum() * .001
     ).all()
+
+
+@given(
+    op_and_state=operator_and_state(),
+)
+def test_apply_operator_matches_act_first_qubits(op_and_state):
+    op_data = op_and_state['operator_data']
+    state_data = op_and_state['state_data']
+
+    operator = op_data['operator']
+    state_vector = state_data['state_vector']
+    op_num_qubits = op_data['num_qubits']
+    field = op_data['field']
+
+    result_act_first_qubits = act_first_qubits(
+        operator=operator,
+        state=state_vector,
+        field=field
+    )
+    result_apply_operator = apply_operator(
+        operator=operator,
+        qubits=range(op_num_qubits),
+        state=state_vector,
+        field=field
+    )
+
+    assert torch.isclose(
+        result_act_first_qubits,
+        result_apply_operator
+    ).all()
+
+
+
+
 
 
 @given(
@@ -84,18 +119,14 @@ def test_act_first_qubits_batching(op_and_state, indices):
         state=state_vector_entry,
         field=op_data['field'],
     )
-    assert (out_entry == unbatched_out).all()
+    assert torch.isclose(out_entry, unbatched_out).all()
 
 
-# @pytest.mark.skip()
 @given(
-    op_and_state=operator_and_state(op_max_num_qubits=1),
+    op_and_state=operator_and_state(op_max_num_qubits=1, max_abs=10.),
     indices=st.lists(st.integers(min_value=0))
 )
 def test_apply_all_qubits_batching(op_and_state, indices):
-    """
-    Just a smoke-test for the time being
-    """
     indices = torch.Size(indices)
     op_data = op_and_state['operator_data']
     state_data = op_and_state['state_data']
@@ -116,7 +147,6 @@ def test_apply_all_qubits_batching(op_and_state, indices):
     if len(state_batch_dims) == 0:
         return
 
-
     assume(len(indices) == len(state_batch_dims))
     assume(all(i < j for i, j in zip(indices, state_batch_dims)))
     out_entry = out[indices]
@@ -133,7 +163,7 @@ def test_apply_all_qubits_batching(op_and_state, indices):
         state=state_vector_entry,
         field=op_data['field'],
     )
-    assert (out_entry == unbatched_out).all()
+    assert torch.isclose(out_entry, unbatched_out).all()
 
 
 @given(
@@ -159,3 +189,21 @@ def test_swap(state, i, j):
 
     # test that swap is index-symmetrical
     assert (state_swapped == state_swapped_other_way).all()
+
+    # check that swap matches permute
+    perm = list(range(n))
+    perm[i] = j
+    perm[j] = i
+    state_permuted = permute_qubits(permutation=perm, state_vector=state)
+    assert torch.isclose(
+        state_swapped,
+        state_permuted,
+        # atol=1e-5,
+        # rtol=1e-4
+    ).all()
+
+
+
+
+
+

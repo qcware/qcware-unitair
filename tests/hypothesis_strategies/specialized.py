@@ -48,7 +48,8 @@ def operator_and_state(
         batch_max_num_indices: int = 3,
         batch_max_index_range: int = 5,
         field: Optional[Field] = None,
-        nonzero: bool = False
+        nonzero: bool = False,
+        max_abs: Optional[float] = None
 ):
     """Draws batches of operators and states that are compatible.
 
@@ -90,7 +91,8 @@ def operator_and_state(
         min_num_qubits=op_num_qubits,
         max_num_qubits=op_num_qubits,
         field=field,
-        nonzero=nonzero
+        nonzero=nonzero,
+        max_abs=max_abs
     ))
     op_data = dict(
         operator=operator,

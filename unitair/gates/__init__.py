@@ -3,6 +3,7 @@ from .gates import (
     exp_y,
     exp_z,
     cnot,
+    hadamard,
     pauli_x,
     pauli_y,
     pauli_z

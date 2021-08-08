@@ -85,8 +85,21 @@ def exp_z(angle: Union[torch.Tensor, float]):
 
 
 @constant_gate(real_or_imag='real')
+def hadamard(device: Optional[torch.device] = None):
+    """Get the Hadamard gate.
+
+    Args:
+        device: If the torch device is not specified, CPU is used.
+    """
+    val = 2. ** (-.5)
+    return [
+        [val, val],
+        [val, -val]
+    ]
+
+@constant_gate(real_or_imag='real')
 def pauli_x(device: Optional[torch.device] = None):
-    """Get the Pauli X operator.
+    """Get the Pauli X gate.
 
     Args:
         device: If the torch device is not specified, CPU is used.
@@ -99,7 +112,7 @@ def pauli_x(device: Optional[torch.device] = None):
 
 @constant_gate(real_or_imag='imag')
 def pauli_y(device: Optional[torch.device] = None):
-    """Get the Pauli Y operator.
+    """Get the Pauli Y gate.
 
     Args:
         device: If the torch device is not specified, CPU is used.
@@ -112,7 +125,7 @@ def pauli_y(device: Optional[torch.device] = None):
 
 @constant_gate(real_or_imag='real')
 def pauli_z(device: Optional[torch.device] = None):
-    """Get the Pauli Z operator.
+    """Get the Pauli Z gate.
 
     Args:
         device: If the torch device is not specified, CPU is used.
@@ -125,7 +138,7 @@ def pauli_z(device: Optional[torch.device] = None):
 
 @constant_gate(real_or_imag='real')
 def cnot(device: Optional[torch.device] = None):
-    """Get a CNOT gate.
+    """Get the CNOT gate.
 
     Args:
         device: If the torch device is not specified, CPU is used.

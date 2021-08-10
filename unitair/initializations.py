@@ -6,13 +6,67 @@ from . import states
 from .states import Field
 
 
+def unit_vector_from_bitstring(
+        bitstring: Union[str, Sequence[int]],
+        device: torch.device = torch.device("cpu"),
+        field: Field = Field.COMPLEX,
+        dtype: torch.dtype = torch.float
+):
+    """Create a unit vector from a classical bit specification.
+
+    This is mainly meant for convenience in interactive experimentation.
+    The function `unit_vector` is preferable in many contexts.
+
+    Examples:
+        >>> unit_vector_from_bitstring('000')  # doctest: +SKIP
+        tensor([[1., 0., 0., 0., 0., 0., 0., 0.],
+                [0., 0., 0., 0., 0., 0., 0., 0.]])
+
+        Bitstring specification is somewhat flexible.
+        >>> unit_vector_from_bitstring([1, 0])  # doctest: +SKIP
+        tensor([[0., 0., 1., 0.],
+                [0., 0., 0., 0.]])
+
+    """
+    try:
+        bitstring = torch.tensor(bitstring)
+    except TypeError:
+        bitstring = torch.tensor([int(i) for i in bitstring])
+
+    implied_num_bits = bitstring.size()[0]
+    powers = torch.tensor([2 ** k for k in reversed(range(implied_num_bits))])
+    index_implied = (powers * bitstring).sum()
+
+    return unit_vector(
+        index=index_implied,
+        num_qubits=implied_num_bits,
+        device=device,
+        field=field,
+        dtype=dtype
+    )
+
+
 def unit_vector(
-        index: int, dim: int,
+        index: int,
+        dim: Optional[int] = None,
+        num_qubits: Optional[int] = None,
         device: torch.device = torch.device("cpu"),
         field: Field = Field.COMPLEX,
         dtype: torch.dtype = torch.float
 ):
     """Create a real or complex unit vector in a Hilbert space."""
+    if dim is None:
+        if num_qubits is None:
+            raise TypeError(
+                'To specify a unit vector, provide either `dim` or '
+                '`num_qubits`.')
+        dim = 2 ** num_qubits
+    else:
+        if num_qubits is not None:
+            raise TypeError(
+                'Unit vector can be specified by `dim` or `num_qubits` but '
+                'not both.'
+            )
     field = Field(field.lower())
     if field is Field.REAL:
         vector = torch.zeros(dim, device=device, dtype=dtype)

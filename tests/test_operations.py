@@ -45,7 +45,7 @@ def test_apply_phase(data):
 
 
 @given(
-    op_and_state=operator_and_state(),
+    op_and_state=operator_and_state(max_abs=10.),
 )
 def test_apply_operator_matches_act_first_qubits(op_and_state):
     op_data = op_and_state['operator_data']

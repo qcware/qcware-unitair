@@ -14,7 +14,7 @@ def unit_vector_from_bitstring(
 ):
     """Create a unit vector from a classical bit specification.
 
-    This is mainly meant for convenience in interactive experimentation.
+    This is meant for convenience in interactive experimentation.
     The function `unit_vector` is preferable in many contexts.
 
     Examples:

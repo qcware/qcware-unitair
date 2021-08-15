@@ -150,3 +150,22 @@ def cnot(device: Optional[torch.device] = None):
         [0., 0., 1., 0.]
     ]
 
+
+# `cx` is an alias for `cnot`.
+cx = cnot
+
+
+@constant_gate(real_or_imag='real')
+def cz(device: Optional[torch.device] = None):
+    """Get the controlled-Z gate.
+
+    Args:
+        device: If the torch device is not specified, CPU is used.
+    """
+    return [
+        [1., 0., 0., 0.],
+        [0., 1., 0., 0.],
+        [0., 0., 1., 0.],
+        [0., 0., 0., -1.]
+    ]
+

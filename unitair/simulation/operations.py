@@ -4,6 +4,7 @@ from unitair.states import Field
 import unitair.states as states
 from .utils import count_gate_batch_dims
 from unitair.utils import permutation_to_front, inverse_list_permutation
+import numpy as np
 
 # TODO: should most validation be in the "front-end" vector functions or should
 #  it be in the tensor functions? Many cases here actually validate in both.
@@ -588,6 +589,95 @@ def permute_qubits_tensor(
         return state_tensor.contiguous()
 
 
+def multi_cz(
+        qubit_pairs: torch.Tensor,
+        state_vector: torch.Tensor,
+        num_bits_memory_cutoff: Optional[int] = None
+):
+    """Apply CZ gates to specified qubit pairs.
 
+    This function can either apply a single CZ gate or multiple gates
+    to arbitrary pairs of qubits. For example, if the parameter
+    `qubit_pairs` is set to torch.tensor([0, 1]), then qubits 0 and 1
+    are used as the (interchangeable) control and target and the gate
+    CZ(control=0, target=1) is applied to `state_vector`. However,
+    if instead we have
 
+        qubit_pairs=torch.tensor([[0, 1], [0, 2]])
 
+    then the gates CZ(control=0, target=1) and CZ(control=0, target=2) are
+    applied to `state_vector`. (Note that the two operators commute.)
+
+    CUDA usage note:
+        This function can benefit substantially from GPU acceleration.
+        This is invoked when the arguments `qubit_pairs` and `state_vector`
+        are CUDA tensors. See argument `num_bits_memory_cutoff` for a
+        parameter that can be tuned to optimize GPU performance.
+
+    Args:
+        qubit_pairs: Tensor with size (2,) or (num_pairs, 2) giving a collection
+            of control-target pairs.
+
+        state_vector: State in vector layout upon which to apply CZ gates.
+
+        num_bits_memory_cutoff: This advanced parameter can be tuned to avoid
+            running out of CUDA memory in the case where multiple qubit pairs
+            are used. Normally multiple qubit pairs are batched and processed
+            with parallelization, but if log_2(num_pairs) + num_qubits exceeds
+            num_bits_memory_cutoff, we instead use a for loop. When this
+            parameter is None, an estimate is used based on device properties.
+    """
+    num_qubits = states.count_qubits(state_vector)
+    dev = qubit_pairs.device
+    if qubit_pairs.dim() == 1:
+        qubit_pairs = qubit_pairs.view(1, 2)
+
+    if state_vector.device.type != qubit_pairs.device.type:
+        raise ValueError(
+            'state_vector and qubit_qubit_pairs must have same device.'
+        )
+
+    elif qubit_pairs.dim() != 2:
+        raise ValueError('qubit_pairs must have size (2,) or (num_pairs, 2).')
+    if (qubit_pairs >= num_qubits).any():
+        raise ValueError(
+            'Control/target indices for CZ gate must be less than num_bits.'
+        )
+
+    num_pairs = qubit_pairs.size()[0]
+    if num_bits_memory_cutoff is None:
+        if dev.type == 'cpu':
+            num_bits_memory_cutoff = np.inf
+        else:
+            mem = torch.cuda.get_device_properties(dev).total_memory
+            num_bits_memory_cutoff = mem - 5
+
+    use_batched_pairs = (
+            num_qubits + np.log2(num_pairs) < num_bits_memory_cutoff
+    )
+
+    # control and target are interchangeable.
+    control = qubit_pairs[:, 0]
+    target = qubit_pairs[:, 1]
+    if (control == target).any():
+        raise ValueError('Control and target qubits are not distinct.')
+    pow_c = num_qubits - control - 1
+    pow_t = num_qubits - target - 1
+    critical_int = 2 ** pow_c + 2 ** pow_t
+
+    all_ints = torch.arange(2 ** num_qubits, device=dev)
+
+    if use_batched_pairs:
+        match = torch.bitwise_and(
+            all_ints.view(-1, 1),
+            critical_int.view(1, -1)
+        ) == critical_int
+
+        phases = torch.prod(1 - 2 * match, dim=-1)
+    else:
+        phases = torch.ones(2 ** num_qubits, device=dev)
+        for crit in critical_int:
+            match = torch.bitwise_and(all_ints, crit) == crit
+            phases *= 1 - 2 * match
+
+    return phases * state_vector

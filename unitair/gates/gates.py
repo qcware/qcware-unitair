@@ -1,6 +1,6 @@
 import torch
 from typing import Union, Optional
-from .gate_constrcution import parameterized_gate, constant_gate
+from .gate_construction import parameterized_gate, constant_gate
 
 
 @parameterized_gate

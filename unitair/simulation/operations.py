@@ -406,6 +406,7 @@ def apply_to_qubits(
     qubits.
     """
     num_qubits = states.count_qubits(state)
+    field = Field.from_case_insensitive(field)
     state_tensor = states.to_tensor_layout(state)
     state_tensor = apply_to_qubits_tensor(
         operators, qubits, state_tensor, num_qubits, field
@@ -647,7 +648,7 @@ def multi_cz(
     num_pairs = qubit_pairs.size()[0]
     if num_bits_memory_cutoff is None:
         if dev.type == 'cpu':
-            num_bits_memory_cutoff = np.inf
+            num_bits_memory_cutoff = 1000  # Effectively infinity.
         else:
             mem = torch.cuda.get_device_properties(dev).total_memory
             num_bits_memory_cutoff = mem - 5

@@ -20,6 +20,10 @@ class Field(str, enum.Enum):
         elif self is Field.COMPLEX:
             return 'Field.COMPLEX'
 
+    @classmethod
+    def from_case_insensitive(cls, spec: Union['Field', str]) -> 'Field':
+        return cls(spec.lower())
+
 
 def count_qubits(state: torch.Tensor):
     """Get the number of qubits of a state in vector layout.

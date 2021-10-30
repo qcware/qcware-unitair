@@ -80,7 +80,7 @@ def unit_vector(
 
 
 def rand_state(
-        num_qubits,
+        num_qubits: int,
         batch_dims: Optional[Sequence] = None,
         device: torch.device = torch.device("cpu"),
         field: Union[Field, str] = Field.COMPLEX,
@@ -100,9 +100,9 @@ def rand_state(
     field = Field(field.lower())
 
     if field is Field.COMPLEX:
-        size = (2, 2 ** num_qubits)
+        size = torch.Size((2, 2 ** num_qubits))
     elif field is Field.REAL:
-        size = (2 ** num_qubits,)
+        size = torch.Size((2 ** num_qubits,))
     else:
         assert False, f"Impossible enumeration {field}."
     state_num_dims = len(size)

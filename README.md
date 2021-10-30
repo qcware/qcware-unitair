@@ -191,5 +191,3 @@ state = simulation.apply_operator(
 tensor([[0.7071, 0.0000, 0.0000, 0.7071],
         [0.0000, 0.0000, 0.0000, 0.0000]])
 ```
-however...
-

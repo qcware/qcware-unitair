@@ -8,6 +8,7 @@ import numpy as np
 
 # TODO: should most validation be in the "front-end" vector functions or should
 #  it be in the tensor functions? Many cases here actually validate in both.
+from ..gates import hadamard
 
 
 def apply_phase(angles: torch.Tensor, state: torch.Tensor):
@@ -682,3 +683,61 @@ def multi_cz(
             phases *= 1 - 2 * match
 
     return phases * state_vector
+
+
+def multi_controlled_z(
+        qubits: Iterable[int],
+        state_vector: torch.Tensor,
+):
+    """Apply a CC...CZ gate to the given qubits.
+
+    Note that controlled-Z operations are independent of the control versus
+    target. The parameter qubits includes all qubits that the gate acts on.
+    """
+    total_num_qubits = states.count_qubits(state_vector)
+    qubits = list(qubits)
+    qubit_set = set(qubits)
+
+    inert_qubits = [
+        q for q in range(total_num_qubits)
+        if q not in qubit_set
+    ]
+
+    # Prepare diag(1, 1, ..., 1, -1) for the subsystem only.
+    subsystem_factors = torch.ones(2 ** len(qubits))
+    subsystem_factors[-1] = -1.
+    factors = subsystem_factors.repeat(2 ** len(inert_qubits))
+
+    # Put unused qubits on the left and C...CZ qubits on the right.
+    perm = inert_qubits + qubits
+    reverse_perm = [0] * total_num_qubits
+    for q, i in enumerate(perm):
+        reverse_perm[i] = q
+
+    # Permute, apply the phase,
+    state_vector = permute_qubits(perm, state_vector)
+    state_vector = factors * state_vector
+    return permute_qubits(reverse_perm, state_vector)
+
+
+def multi_controlled_x(
+        state_vector: torch.Tensor,
+        controls: Iterable[int],
+        target: int
+):
+    controls = list(controls)
+    h = hadamard()
+    state_vector = apply_operator(
+        operator=h,
+        qubits=[target],
+        state=state_vector
+    )
+    state_vector = multi_controlled_z(
+        qubits=controls + [target],
+        state_vector=state_vector
+    )
+    return apply_operator(
+        operator=h,
+        qubits=[target],
+        state=state_vector
+    )

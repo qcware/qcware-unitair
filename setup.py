@@ -13,8 +13,8 @@ SOURCE_URL = 'https://github.com/qcware/qcware-unitair.git'
 
 setuptools.setup(
     name="qcware-unitair",
-    version="0.0.12",
-    author="Sean Weinberg / Fabio Sanches / QC Ware Corp.",
+    version="0.1.0",
+    author="QC Ware Corp.",
     author_email="sean.weinberg@qcware.com",
     description="PyTorch-based quantum computing.",
     long_description=README,

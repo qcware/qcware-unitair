@@ -6,46 +6,46 @@ Unitair differs from other quantum computing software packages
 in extreme but sensible ways. Quantum states are PyTorch tensors (the PyTorch
 version of the NumPy `ndarray`). There is no special class for quantum states
 class nor is there an abstract `QuantumCircuit` class. 
-In fact, Unitair doesn't really
-rely on any circuit model (although it certainly does support 
-circuit-model computation).
+Unitair doesn't really rely on any circuit model although it certainly 
+supports circuit-model computation.
 
-Manipulations of quantum states take full advantage of PyTorch's strengths. 
+Manipulations of quantum states naturally take advantage of PyTorch's strengths. 
 You can
 - Apply gates and other operations to a batch of states
-- Use gradient to track gate parameters or parameters used to build an initial state
+- Use gradients to track gate parameters or parameters used to build an initial state
 - Set `device='cuda'` to get GPU-acceleration
 - Mix `unitair` functions with `torch.nn` networks or any other PyTorch functionality
 
 
 ### Cheat whenever possible
-Unlike most quantum circuit software, `unitair` makes no
-effort to perform simulations in a way that models real
+Unlike standard quantum circuit simulation, `unitair` 
+tries to "just get the answer" and does not aim
+to perform operations in a way that models real
 quantum circuits or hardware. In this sense, `unitair` is
 probably best regarded as an emulator rather than a simulator.
 
-Unitair functions take shortcuts whenever possible. 
+Functions aim to take shortcuts whenever possible. 
 Rather than applying a Hadamard gate to every
-qubit, the best practice is to use `unitair.uniform_superposition`
-which just reads off the state that would arise from applying
-those Hadamards.
+qubit starting with |0...0>, 
+the best practice is to use `unitair.uniform_superposition`
+which reads off the state directly.
 
-Our shortcuts have three notable downsides:
+This approach has three notable downsides:
 1. `unitair` does not aim to simulate noise realistically.
 1. Users should be aware that manipulations that look
-   simple in `unitair` may be very complex when constructed with 
+   simple with `unitair` may be very complex when constructed with 
    realistic gates.
 1. Deployment to hardware or translation to other quantum computing
-   packages is not a function of `unitair`.
+   packages is not an intended usage of `unitair`.
    
-On the other hand, cheating has a massive benefit: researchers can
+On the other hand, emulation has a massive benefit: researchers can
 test or develop quantum algorithms with substantially lower runtimes than
 is possible with standard simulation.
 
 ### Intended users
 Unitair is easy to use for anyone with experience in PyTorch and basic knowledge of
 quantum computing.  For users that are experts in only one of these areas (either 
-machine learning libraries or quantum computing but not not both) it should be straightworward 
+machine learning libraries or quantum computing but not both) it should be straightforward 
 to use `unitair` to start making a connection with the other.
 
 ### States are tensors
@@ -191,3 +191,10 @@ state = simulation.apply_operator(
 tensor([[0.7071, 0.0000, 0.0000, 0.7071],
         [0.0000, 0.0000, 0.0000, 0.0000]])
 ```
+
+#### About Unitair
+Unitair was written at QC Ware Corp. by Sean Weinberg.
+Fabio Sanches envisioned and suggested the project in 2020.
+
+If you have questions or would like to contribute to Unitair,
+you can email sean.weinberg@qcware.com.

@@ -1,3 +1,33 @@
+[tool.poetry]
+name = "unitair"
+version = "0.1.1"
+authors=["Sean Weinberg <sean.weinberg@qcware.com>", "Fabio Sanches <fabio.sanches@qcware.com>"]
+description = "PyTorch-based quantum computing"
+readme = "README.md"
+homepage = "https://github.com/qcware/qcware-unitair.git"
+classifiers=[
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: Apache Software License"
+]
+packages = [
+  {include = "unitair", from="src"}
+]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+torch = ">=1.8.1"
+decorator = ">=4.4.2"
+numpy = ">=1.21.0"
+
+[tool.poetry.dev-dependencies]
+hypothesis = ">=6.14.0"
+python-lsp-server = {extras = ["rope", "pyflakes", "mccabe"], version = "^1.3.3"}
+mypy-ls = "^0.5.1"
+pyls-isort = "^0.2.2"
+python-lsp-black = "^1.1.0"
+pyls-memestra = "^0.0.16"
+pre-commit = "^2.17.0"
+
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

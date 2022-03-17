@@ -27,6 +27,8 @@ pyls-isort = "^0.2.2"
 python-lsp-black = "^1.1.0"
 pyls-memestra = "^0.0.16"
 pre-commit = "^2.17.0"
+pytest = "^7.1.0"
+pytest-xdist = "^2.5.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

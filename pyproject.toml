@@ -10,7 +10,8 @@ classifiers=[
   "License :: OSI Approved :: Apache Software License"
 ]
 packages = [
-  {include = "unitair", from="src"}
+  {include = "unitair", from="src"},
+  {include = "test", from= "tests", format = "sdist"},
 ]
 
 [tool.poetry.dependencies]

@@ -11,7 +11,7 @@ classifiers=[
 ]
 packages = [
   {include = "unitair", from="src"},
-  {include = "test", from= "tests", format = "sdist"},
+  {include = "tests", format = "sdist"},
 ]
 
 [tool.poetry.dependencies]

@@ -203,5 +203,5 @@ tensor([[0.7071, 0.0000, 0.0000, 0.7071],
 Unitair was written at QC Ware Corp. by Sean Weinberg.
 Fabio Sanches envisioned and suggested the project in 2020.
 
-If you have questions or would like to contribute to Unitair,
-you can email sean.weinberg@qcware.com.
+If you have questions or feedback, or if you would like to contribute to Unitair,
+please email sean.weinberg@qcware.com.

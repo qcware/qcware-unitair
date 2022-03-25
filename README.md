@@ -1,12 +1,13 @@
 # unitair: PyTorch-based quantum circuits
 
-Unitair is a Python package that brings quantum computing to PyTorch. 
+Unitair is a lightweight Python package that 
+brings quantum computing to PyTorch. 
 
 Unitair differs from other quantum computing software packages
-in extreme but sensible ways. Quantum states are PyTorch tensors (the PyTorch
+in important ways. Quantum states are PyTorch tensors (the PyTorch
 version of the NumPy `ndarray`). There is no special class for quantum states
 class nor is there an abstract `QuantumCircuit` class. 
-Unitair doesn't really rely on any circuit model although it certainly 
+Unitair doesn't directly rely on any circuit model although it 
 supports circuit-model computation.
 
 Manipulations of quantum states naturally take advantage of PyTorch's strengths. 
@@ -19,10 +20,11 @@ You can
 
 ### Cheat whenever possible
 Unlike standard quantum circuit simulation, `unitair` 
-tries to "just get the answer" and does not aim
+is designed to encourage users to 
+"just get the answer" and does not aim
 to perform operations in a way that models real
-quantum circuits or hardware. In this sense, `unitair` is
-probably best regarded as an emulator rather than a simulator.
+quantum circuits or hardware. In this sense, `unitair` should
+be regarded as an *emulator* rather than a simulator.
 
 Functions aim to take shortcuts whenever possible. 
 Rather than applying a Hadamard gate to every
@@ -38,15 +40,20 @@ This approach has three notable downsides:
 1. Deployment to hardware or translation to other quantum computing
    packages is not an intended usage of `unitair`.
    
-On the other hand, emulation has a massive benefit: researchers can
-test or develop quantum algorithms with substantially lower runtimes than
-is possible with standard simulation.
+On the other hand, emulation has massive benefits: researchers can
+test or develop quantum algorithms with lower runtimes than
+is possible with standard simulation, and states can
+be manipulated in arbitrary ways, whether physically sensible or not.
 
 ### Intended users
-Unitair is easy to use for anyone with experience in PyTorch and basic knowledge of
-quantum computing.  For users that are experts in only one of these areas (either 
-machine learning libraries or quantum computing but not both) it should be straightforward 
-to use `unitair` to start making a connection with the other.
+Unitair was designed with the goal of helping to bridge the fields
+of quantum computing and machine learning. Anyone with experience in 
+PyTorch (or another machine learning library like TensorFlow) 
+and basic knowledge of quantum computing should find
+`unitair` to be very simple. Users that are experts in 
+machine learning or quantum computing but not both
+should find `unitair` helpful to start making a connection 
+with the other discipline.
 
 ### States are tensors
 Unitair avoids unnecessary complexity by just using `torch.Tensor` as the

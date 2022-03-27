@@ -5,8 +5,9 @@ from hypothesis import assume
 import torch
 
 from unitair import Field, count_qubits
+from unitair.simulation.utils import gate_batch_size
 from .tensors import state_vectors, tensors_size_fixed, \
-    state_vectors_with_metadata, operators_batch_fixed
+    state_vectors_with_metadata, operators_batch_fixed, operators
 
 
 @st.composite
@@ -73,27 +74,28 @@ def operator_and_state(
         state_num_qubits >= op_min_num_qubits
     )
 
-    # Compatability conditions.
-    op_batch_dims = draw(st.sampled_from(
-        [
-            state_batch_dims,
-            torch.Size([])
-        ]
-    ))
-
     op_num_qubits = draw(st.integers(
         min_value=op_min_num_qubits,
         max_value=min(state_num_qubits, op_max_num_qubits)
     ))
 
-    operator = draw(operators_batch_fixed(
-        batch_dims=op_batch_dims,
+    operator = draw(operators(
         min_num_qubits=op_num_qubits,
         max_num_qubits=op_num_qubits,
-        field=field,
+        batch_max_num_indices=batch_max_num_indices,
+        batch_max_index_range=batch_max_index_range,
+        field=field,  # Fixed to match state field
         nonzero=nonzero,
         max_abs=max_abs
     ))
+    op_batch_dims = gate_batch_size(gate=operator, field=field)
+
+    assume(
+        len(op_batch_dims) == 0
+        or len(state_batch_dims) == 0
+        or op_batch_dims == state_batch_dims
+    )
+
     op_data = dict(
         operator=operator,
         num_qubits=op_num_qubits,

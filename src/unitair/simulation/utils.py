@@ -13,9 +13,16 @@ def count_gate_batch_dims(gate: torch.Tensor, field: Field = Field.COMPLEX):
         field: Specification of the Field (complex or real) for the gate.
     """
     if field is Field.COMPLEX:
-        return gate.dim() - 3
+        out = gate.dim() - 3
     else:
-        return gate.dim() - 2
+        out = gate.dim() - 2
+
+    if out < 0:
+        raise RuntimeError(
+            f'Gate with size {gate.size()} is incorrectly shaped for a '
+            f'{field.value} operator batch.'
+        )
+    return out
 
 
 def gate_batch_size(gate: torch.Tensor, field: Field = Field.COMPLEX):
@@ -29,4 +36,4 @@ def gate_batch_size(gate: torch.Tensor, field: Field = Field.COMPLEX):
         field: Specification of the Field (complex or real) for the gate.
     """
     num_batch_dims = count_gate_batch_dims(gate, field)
-    return gate.size()[:-num_batch_dims]
+    return gate.size()[:num_batch_dims]

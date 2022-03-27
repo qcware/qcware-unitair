@@ -38,14 +38,91 @@ def apply_phase(angles: torch.Tensor, state: torch.Tensor):
     ), dim=-2)
 
 
-# TODO: documentation for apply_operator. This is tested with operator and
-#   state batching in the usual two patterns.
 def apply_operator(
         operator: torch.Tensor,
         qubits: Iterable[int],
         state: torch.Tensor,
         field: Union[Field, str] = Field.COMPLEX
 ):
+    """Apply an operator to a state in vector layout.
+
+    This is a versatile function for applying arbitrary matrices to
+    arbitrary subsets of qubits with optional batching behavior.
+
+    Consider an example of acting with a two-qubit gate
+    on the last two qubits of a state for three qubits.
+    Let `psi` be state for three qubits with no batch dimensions so that
+    `psi` has size (2, 8). (The first dimension with length 2 is for the real
+    and complex parts of the state.)
+
+    The operator that wish to apply is a 4 by 4 complex matrix (4 because
+    4 = 2^(number of qubits that the gate acts on)). With Unitair
+    conventions, this is constructed by a tensor with size (2, 4, 4).
+    The first dimension is for the real and imaginary parts, while the
+    last two are for the matrix. For example, the CNOT gate is
+
+    operator = torch.tensor(
+                 [[[1., 0., 0., 0.],
+                   [0., 1., 0., 0.],
+                   [0., 0., 0., 1.],
+                   [0., 0., 1., 0.]],
+
+                  [[0., 0., 0., 0.],
+                   [0., 0., 0., 0.],
+                   [0., 0., 0., 0.],
+                   [0., 0., 0., 0.]]])
+
+    To apply our operator to the desired qubits, we use
+
+        apply_operator(operator, qubits=(1, 2), state=psi)
+
+    which makes `operator` act on qubits 1 and 2 (in that order!) in
+    the state `psi`. Note that qubit counting starts at 0, so the operator
+    acts on the middle and final qubit. We could have used qubits=(0, 1)
+    to act on the first pair, and we could have used qubits=(1, 0) to act
+    on the first pair but in the reversed order.
+
+    There are three batch structures allowed for the inputs with different
+    resulting behaviors. These are very important to understand to get
+    the benefit of vectorization and CUDA, it is is available.
+
+    1. `operator` and `state` have identical batch dimension. In this case
+        each operator will act on each corresponding state. The output
+        will have the size (*batch, 2, 2^n) when the field is complex.
+        Each batch entry of the output is the action of the corresponding
+        batch entry of `operator` on the batch entry of `state`.
+        Note that completely unbatched situation is a special case of this.
+
+    2. `operator` has no batch dimension but `state` does. In this case
+        there is one operator that acts on a batch of states. The output
+        will have size (*batch, 2, 2^n) when the field is complex. Each
+        batch entry of the output is the action of the one operator
+        on the corresponding batch entry of `state`.
+
+    3. `operator` has dimensions but `state` does not. In this case
+        there are many operators that act on a single state. This function
+        computes the actions of all of these operators on the one state
+        in parallel--not in series. We don't compose operators
+        and apply one after the other as in a quantum circuit.
+        The output will have size (*batch, 2, 2^n) when the field is complex.
+        Each batch entry of the output is the action of the corresponding
+        operator on `state`, the one initial state.
+
+    Args:
+        operator: 'Matrix' with size (*operator_batch, 2, 2^k, 2^k) in the
+            complex case and (*operator_batch, 2^k, 2^k) in the real case.
+            Here, k is the number of qubits that the operator acts on.
+
+        qubits: Sequence of qubits for the operator to act on. This should
+            have length k (same k as above). Note that the order of items in
+            `qubits` is important.
+
+        state: State in vector layout with size (*state_batch, 2, 2^n, 2^n)
+            in the complex case and (*state_batch, 2^n, 2^n) in the real case.
+            Here, n is the number of qubits.
+
+        field: Field of the operator and state.
+    """
     field = Field(field.lower())
     num_qubits = states.count_qubits(state)
     qubits = list(qubits)
@@ -236,7 +313,7 @@ def act_first_qubits_tensor(
     Both operator and state_tensor can have batch dimensions, but batch
     dimensions must be compatible.
 
-    Batching cases:
+    Valid batch structures:
        `operator` and `state_tensor` have the same batch dimensions:
            In this case, each batch entry of `operator` acts on the
            corresponding entry of `state_tensor`.
@@ -244,6 +321,9 @@ def act_first_qubits_tensor(
        `operator` has no batch dimensions but `state_tensor` does:
            In this case, the same operator acts on every state_tensor
            in the batch.
+
+        `operator` has batch dimensions but `state_tensor` does not:
+            In this case, each operator acts on the same state.
     """
     field = Field(field.lower())
     if gate_num_qubits is None:
@@ -251,18 +331,33 @@ def act_first_qubits_tensor(
 
     gate_dim = 2 ** gate_num_qubits
 
+    # Determine the batch structure for the state(s) and operator(s).
     state_n_batch_dims = states.count_batch_dims_tensor(
         state_tensor, num_qubits, field
     )
     op_n_batch_dims = count_gate_batch_dims(operator, field)
     state_batch_dims = state_tensor.size()[:state_n_batch_dims]
+    op_batch_dims = operator.size()[:op_n_batch_dims]
+
+    # In the case of batched operators and a single state, we expand the state
+    # into a repeated batch so that all operators act on the same state.
+    if op_n_batch_dims > 0 and state_n_batch_dims == 0:
+        state_tensor = state_tensor.expand(
+            *op_batch_dims, *state_tensor.size()
+        )
+        state_n_batch_dims = op_n_batch_dims
+        state_batch_dims = op_batch_dims
 
     state_tensor = states.subset_roll_to_back(state_tensor, state_n_batch_dims)
     operator = states.subset_roll_to_back(operator, op_n_batch_dims)
 
     def act(op, tensor):
         old_size = tensor.size()
-        new_size = (gate_dim,) + (num_qubits - gate_num_qubits) * (2,) + state_batch_dims
+        new_size = (
+                (gate_dim,)
+                + (num_qubits - gate_num_qubits) * (2,)
+                + state_batch_dims
+        )
         tensor_view = tensor.view(new_size)
         result = torch.einsum('ab..., b... -> a...', op, tensor_view)
         return result.view(old_size)
@@ -518,6 +613,8 @@ def roll_qubits_tensor(
         num_qubits: Number of qubits for the state.
 
         num_steps: Number of indices to cycle.
+
+        field: The Field for `state_tensor`.
     """
     # TODO: document new batching
     num_batch_dims = states.count_batch_dims_tensor(
@@ -530,7 +627,10 @@ def roll_qubits_tensor(
         identity = list(range(num_batch_dims, num_batch_dims + num_qubits))
         perm = identity[-num_steps:] + identity[:-num_steps]
     else:
-        identity = list(range(1 + num_batch_dims, num_qubits + 1 + num_batch_dims))
+        identity = list(range(
+            1 + num_batch_dims,
+            num_qubits + 1 + num_batch_dims)
+        )
         perm = [num_batch_dims] + identity[-num_steps:] + identity[:-num_steps]
     perm = list(range(num_batch_dims))+perm
     return state_tensor.permute(perm)
@@ -557,7 +657,9 @@ def permute_qubits(
         state_tensor=state_tensor,
         num_qubits=num_qubits,
     )
-    return states.to_vector_layout(permuted_state_tensor, num_qubits=num_qubits)
+    return states.to_vector_layout(
+        permuted_state_tensor, num_qubits=num_qubits
+    )
 
 
 def permute_qubits_tensor(
@@ -617,8 +719,8 @@ def multi_cz(
         parameter that can be tuned to optimize GPU performance.
 
     Args:
-        qubit_pairs: Tensor with size (2,) or (num_pairs, 2) giving a collection
-            of control-target pairs.
+        qubit_pairs: Tensor with size (2,) or (num_pairs, 2) giving a
+            collection of control-target pairs.
 
         state_vector: State in vector layout upon which to apply CZ gates.
 

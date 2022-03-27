@@ -48,8 +48,8 @@ def unit_vector_from_bitstring(
 
 def unit_vector(
         index: int,
-        dim: Optional[int] = None,
         num_qubits: Optional[int] = None,
+        dim: Optional[int] = None,
         device: torch.device = torch.device("cpu"),
         field: Field = Field.COMPLEX,
         dtype: torch.dtype = torch.float
@@ -67,7 +67,7 @@ def unit_vector(
                 'Unit vector can be specified by `dim` or `num_qubits` but '
                 'not both.'
             )
-    field = Field(field.lower())
+    field = Field.from_case_insensitive(field)
     if field is Field.REAL:
         vector = torch.zeros(dim, device=device, dtype=dtype)
         vector[index] = 1

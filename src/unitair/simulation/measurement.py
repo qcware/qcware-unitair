@@ -138,4 +138,3 @@ class MeasurementHistogram:
         else:
             out = out[:-1]  # clip an extra \n
         return out
-

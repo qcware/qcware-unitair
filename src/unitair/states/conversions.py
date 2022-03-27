@@ -1,5 +1,4 @@
 import torch
-from .shapes import Field, StateLayout, StateShapeError
 from . import shapes
 
 

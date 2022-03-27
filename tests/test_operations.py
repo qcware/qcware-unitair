@@ -1,10 +1,6 @@
-import random
-
-import hypothesis
-import pytest
 import torch
 
-from unitair import Field
+
 from unitair.simulation.operations import apply_phase
 from unitair.simulation.operations import apply_operator
 from unitair.simulation.operations import act_first_qubits
@@ -74,10 +70,6 @@ def test_apply_operator_matches_act_first_qubits(op_and_state):
     ).all()
 
 
-
-
-
-
 @given(
     op_and_state=operator_and_state(),
     indices=st.lists(st.integers(min_value=0))
@@ -100,14 +92,29 @@ def test_act_first_qubits_batching(op_and_state, indices):
 
     # If there are no state batch dims, there's nothing to check
     # although the above is still a smoke-test.
-    if len(state_batch_dims) == 0:
+    if len(state_batch_dims) == 0 and len(op_batch_dims) == 0:
         return
 
-    assume(len(indices) == len(state_batch_dims))
-    assume(all(i < j for i, j in zip(indices, state_batch_dims)))
+    # When both state and op batch dims are nontrivial, they are already
+    # identical because of the `operator_and_state` strategy's behavior
+    if len(state_batch_dims) > 0:
+        batch_dims = state_batch_dims
+    elif len(op_batch_dims) > 0:
+        batch_dims = op_batch_dims
+    else:
+        assert False, 'This code should be unreachable.'
+
+    assume(len(indices) == len(batch_dims))
+
+
+
+    assume(all(i < j for i, j in zip(indices, batch_dims)))
     out_entry = out[indices]
 
-    state_vector_entry = state_vector[indices]
+    if len(state_batch_dims) > 0:
+        state_vector_entry = state_vector[indices]
+    else:
+        state_vector_entry = state_vector
 
     if len(op_batch_dims) > 0:
         operator_entry = operator[indices]

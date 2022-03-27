@@ -1,0 +1,37 @@
+.. unitair documentation master file, created by
+   sphinx-quickstart on Fri Mar 25 17:13:51 2022.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+Unitair Documentation
+=====================
+Some introductory text here
+
+Here is a section title
+-----------------------
+
+And a subsection title
+~~~~~~~~~~~~~~~~~~~~~~
+
+
+.. code-block:: python
+
+  def my_function():
+      "just a test"
+      print(8/2)
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   install
+
+
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`

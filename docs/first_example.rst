@@ -18,8 +18,8 @@ and we can write its basis vectors as
 
 .. math::
 
-    \ket{0} =& (1, 0)\\
-    \ket{1} =& (0, 1)
+    \ket{0} =& \left(\begin{array}{c} 1\\ 0 \end{array}\right)\\
+    \ket{1} =& \left(\begin{array}{c} 0\\ 1 \end{array}\right)
 
 With PyTorch, we encode these states with tensors
 of size (2, 2):
@@ -71,6 +71,7 @@ Unitair has a convention for such a matrix which has the same
 idea as in the case of states. Namely:
 
 .. code-block:: python
+    :name: q-matrix
 
     q = torch.tensor([[[ 1.,  5.],
                        [ 5.,  -1.]],
@@ -115,7 +116,7 @@ To perform this operation with Unitair, we use the function
         state=ket_0
     )
 
-.. code-block::
+.. code-block:: python
     :caption: Interactive Interpreter
 
     >>> new_state
@@ -131,10 +132,9 @@ first dimension being for real and imaginary parts.
 .. tip::
 
     To extract real and imaginary parts of a state, you
-    can use ``unitair.states.real_imag``. You might think this
-    is silly since, for example, ``new_state[1]`` is the imaginary part,
-    but this function is more useful when dealing with
-    batches of states and it improves readability.
+    can use ``unitair.states.real_imag``. This function
+    is especially useful when dealing with
+    batches of states (discussed shortly).
 
 
 Operating on Batches of States
@@ -160,30 +160,239 @@ the tensor ``torch.stack([ket_0, ket_1])`` which is the same as
 
 Which has size (2, 2, 2). The repeated twos are
 just an unfortunate coincidence, and the more general form
-is ``(batch_length, 2, hilbert_space_dimension)`` where
-``hilbert_space_dimension`` is :math:`2^n` for :math:`n` qubits.
+is
+
+.. code-block:: python
+
+    (batch_length, 2, hilbert_space_dimension)
+
+where ``hilbert_space_dimension`` is :math:`2^n` for :math:`n` qubits.
 All Unitair functionality is built to understand that
-states are formatted with this structure.
+states are formatted with this structure, and deviating from it
+is more likely to raise errors than to give incorrect results.
 
 .. note::
 
-    You may be thinking "Wouldn't the annoyance of knowing that
-    states have to follow these specific size rules be avoided
-    if Unitair just used a special ``QuantumState`` class instead
-    of ``torch.Tensor``?" This is true, but there is enormous benefit
-    to sticking with ``Tensor`` and the state conventions are easy
-    to get used to. There is no need to convert back and
-    forth between a ``Tensor`` and another class to use any PyTorch
-    functionality, and Unitair has lots of internal validation to
-    help avoid mistakes with state shapes.
+    Having to remember the conventions for shapes of states in Unitair
+    may seem frustrating. A ``QuantumState`` class would
+    eliminate this issue, but it would come with other costs.
+    Sticking with a plain ``Tensor`` means that PyTorch functionality
+    can be used without the burden of converting between types and
+    it makes Unitair easier to learn for PyTorch users.
 
-For a spin-1/2 particle, the state :math:`\ket{0}` indicates that
-spin "points" in the :math:`+z` direction. (If you are not comfortable
-with this language, just think of :math:`\ket{0}` as an arrow pointing
-vertically up.)
-Applying a magnetic field
-in the :math:`+x` direction will cause the spin to rotate its orientation
-about the :math:`x` axis, resulting in a spin that points somewhere in
-the :math:`y-z` plane.
+Now let's apply :math:`Q` to both :math:`\ket{0}` and :math:`\ket{1}`:
+
+.. code-block:: python
+
+    from unitair.simulation import apply_operator
+
+    # q and state_batch already defined as above
+    new_state = apply_operator(
+        operator=q,
+        qubits=(0,),
+        state=state_batch
+    )
+
+.. code-block:: python
+    :caption: Interactive Interpreter
+
+    >>> new_state_batch
+        tensor([[[ 1.,  5.],
+                 [ 0.,  1.]],
+
+                [[ 5., -1.],
+                 [-1.,  0.]]])
+
+The result is a new batch of states with the expected structure. The first
+batch entry is :math:`Q \ket{0}` and the second is :math:`Q \ket{1}`.
+Although this example is trivial, it's important to not underestimate
+the benefits of batching. Running ``apply_operator`` with a batch
+of states can be thousands of times faster than running it repeatedly
+in a loop, even on a CPU.
+
+
+Batched Operations on a State
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Batching is a fundamental concept for NumPy and PyTorch and indeed
+it is central to Unitair. Not only can one operator act on many states,
+but we can have many operators act on one state. (And in fact, we can
+also have a collection of operators act on a collection of states in
+one-to-one correspondence.)
+
+.. note::
+
+    When we talk about a batch of operators acting on a state,
+    we mean obtaining the results of operating
+    with each individual operator on the *same* initial state
+    in "parallel", not in "sequence". We are not constructing
+    a circuit by composing operators.
+
+When we
+:ref:`constructed the matrix<q-matrix>` :math:`Q` as
+a ``Tensor``, it had size ``(2, 2, 2)`` which has the form
+
+.. code-block:: none
+    :caption: Operator size (no batch)
+
+    (
+        2,   (Real and imaginary parts)
+        2^k, (Matrix rows, k = number of qubits the matrix acts on)
+        2^k, (Matrix columns)
+    )
+
+Thus, we get :math:`(2, 2, 2)` when :math:`k=1`.
+
+To create a batch of operators, we just add an additional dimension
+on the left:
+
+.. code-block:: none
+    :caption: Operator size (one batch dimension)
+    :name: op-size-one-batch-dim
+
+    (
+        batch_length,
+        2,   (Real and imaginary parts)
+        2^k, (Matrix rows)
+        2^k, (Matrix columns)
+    )
+
+Now let's create a batch of operators. Given a real number :math:`t`,
+consider the operator
+
+.. math::
+    U(t) = \left(\begin{array}{cc}
+    \cos t & -i \sin t \\
+    -i \sin t & \cos t
+    \end{array}\right)
+
+If you have a background in quantum mechanics, you may recognize
+this operator as a spin 1/2 rotation about
+the :math:`x`-axis by angle :math:`2t`. Regardless, note that :math:`U(t)`
+can be written as
+
+
+.. math::
+
+    U(t) &= \cos (t) - i \sin (t) \, X \\
+        &= e^{-i t X}
+
+where :math:`X` is the Pauli operator
+
+.. math::
+    X = \left(\begin{array}{cc}
+    0 & 1 \\
+    1  & 0
+    \end{array}\right)
+
+and we use the matrix exponential function.
+
+Unitair allows
+us to construct :math:`e^{-i t X}` very easily:
+
+.. code-block:: python
+    :caption: Interactive Interpreter
+
+    >>> from unitair.gates import exp_x
+    >>> exp_x(.5)
+    tensor([[[ 0.8776,  0.0000],
+             [ 0.0000,  0.8776]],
+
+            [[ 0.0000, -0.4794],
+             [-0.4794,  0.0000]]])
+
+You can confirm that this operation is as expected.
+
+Now what if we want to consider a batch of different parameters :math:`t`?
+
+.. code-block::
+
+    import torch
+    from math import pi
+    from unitair.gates import exp_x
+
+    # Create t = torch.tensor([0, .01, .02, ..., approximately pi])
+    t = torch.arange(0, pi, .01)
+    gate_batch = exp_x(t)
+
+.. code-block:: python
+    :caption: Interactive Interpreter
+
+    >>> gate_batch.size()
+    torch.Size([315, 2, 2, 2])
+
+    >>> gate_batch[0]
+    tensor([[[1., 0.],
+             [0., 1.]],
+
+            [[0., -0.],
+             [-0., 0.]]])
+
+    >>> gate_batch[1]
+    tensor([[[ 0.9999,  0.0000],
+             [ 0.0000,  0.9999]],
+
+            [[ 0.0000, -0.0100],
+             [-0.0100,  0.0000]]])
+
+This is all consistent with
+the :ref:`expected batched operator size<op-size-one-batch-dim>`.
+
+Let's now apply *all* of these operators to :math:`\ket{0}`:
+
+.. code-block:: python
+
+    from unitair.simulation import apply_operator
+
+    # gate_batch and ket_0 already defined as above
+    states = apply_operator(
+        operator=gate_batch,
+        qubits=(0,),
+        state=ket_0
+    )
+
+.. code-block:: python
+    :caption: Interactive Interpreter
+
+    >>> states.size()
+    torch.Size([315, 2, 2])
+
+    # The first 3 states rotated away from |0>
+    >>> states[:3]
+    tensor([[[ 1.0000,  0.0000],
+             [ 0.0000,  0.0000]],
+
+            [[ 0.9999,  0.0000],
+             [ 0.0000, -0.0100]],
+
+            [[ 0.9998,  0.0000],
+             [ 0.0000, -0.0200]]])
+
+    # The last state was almost rotated by 360 degrees and returns to
+    # approximately -|0> rather than |0>, a famous property of half-integer
+    # spin particles. Note that the approximate result is because the last
+    # parameter was pi - .01 instead of pi.
+    >>> states[-1]
+    tensor([[-1.0000,  0.0000],
+            [ 0.0000, -0.0016]])
+
+For convenience, we can ask Unitair about the probabilities of
+measuring 0 and 1:
+
+.. code-block:: python
+    :caption: Interactive Interpreter
+
+    >>> from unitair.states import abs_squared
+    >>> probabilities = abs_squared(state)
+    >>> probabilities[:5]
+    tensor([[1.0000e+00, 0.0000e+00],
+            [9.9990e-01, 9.9997e-05],
+            [9.9960e-01, 3.9995e-04],
+            [9.9910e-01, 8.9973e-04],
+            [9.9840e-01, 1.5991e-03]])
+
+
+
+
 
 

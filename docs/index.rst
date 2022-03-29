@@ -5,20 +5,42 @@
 
 Unitair Documentation
 =====================
-Some introductory text here
+Unitair is a lightweight Python package that
+brings quantum computing to PyTorch.
 
-Here is a section title
------------------------
+Unitair differs from other quantum computing software packages
+in important ways. Quantum states are PyTorch tensors (the PyTorch
+version of the NumPy ``ndarray``). There is no special class for quantum states
+class nor is there an abstract ``QuantumCircuit`` class.
+Unitair doesn't directly rely on any circuit model although it
+supports circuit-model computation.
 
-And a subsection title
-~~~~~~~~~~~~~~~~~~~~~~
+Manipulations of quantum states naturally take advantage of PyTorch's
+strengths. You can
 
+* Apply gates and other operations to a batch of states
+* Use gradients to track gate parameters or parameters used to build an initial state
+* Set `device='cuda'` to get GPU-acceleration
+* Mix `unitair` functions with `torch.nn` networks or any other PyTorch functionality
 
-.. code-block:: python
+The design of Unitair encourages users to do things that, really, should never
+be done to quantum states. Their components can be directly read and
+manipulated in physically unrealistic ways. This freedom allows for
+great efficiency when emulating quantum state evolution. If you know
+that the effect of a series of operations is to manipulate a state
+in a certain way, why not just change the components by hand rather than
+applying gates in a computationally complicated way?
 
-  def my_function():
-      "just a test"
-      print(8/2)
+Intended users
+~~~~~~~~~~~~~~
+Unitair was designed with the goal of helping to bridge the fields
+of quantum computing and machine learning. Anyone with experience in
+PyTorch (or another machine learning library like TensorFlow)
+and basic knowledge of quantum computing should find
+Unitair to be very simple. Users that are experts in
+machine learning or quantum computing but not both
+should find Unitair helpful to start making a connection
+with the other discipline.
 
 
 .. toctree::
@@ -26,6 +48,7 @@ And a subsection title
    :caption: Contents:
 
    install
+   first_example
 
 
 

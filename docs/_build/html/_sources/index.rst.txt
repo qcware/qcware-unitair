@@ -1,4 +1,4 @@
-.. unitair documentation master file, created by
+.. Unitair documentation master file, created by
    sphinx-quickstart on Fri Mar 25 17:13:51 2022.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
@@ -42,6 +42,26 @@ machine learning or quantum computing but not both
 should find Unitair helpful to start making a connection
 with the other discipline.
 
+What Unitair Is and Is Not
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Unitair...
+
+* is a library of PyTorch linear algebra functions for quantum computing
+* is a quantum computing emulation tool
+* can substantially reduce circuit simulation time (when used well)
+* is lightweight and easy to use if you have PyTorch experience
+* batches quantum states and operations for performance on a CPU or GPU
+* can simulate any quantum circuit (within computational constraints)
+* tracks gradients (everything PyTorch under the hood)
+
+but Unitair is **not**...
+
+* a replacement for Circ, Qiskit, Quasar, Q#, etc.
+* designed to simulate noise realistically
+* a quantum circuit editor
+* helpful for deploying quantum circuits on quantum hardware
+* a quantum algorithm library
 
 .. toctree::
    :maxdepth: 2
@@ -49,6 +69,7 @@ with the other discipline.
 
    install
    first_example
+   quantum_states
 
 
 

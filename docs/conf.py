@@ -58,7 +58,10 @@ html_static_path = ['_static']
 mathjax3_config = {
     "TeX": {
         "Macros": {
-            'ket': '{\\left|#1\\right\\rangle }',
+            'ket': r'{\left|#1\right\rangle }',
+            'bra': r'{\left\langle #1\right|}',
+            'linner': r'{\left\langle \left.#1\,\right|#2\hspace{1.2pt}\right\rangle }',
+            'rinner': r'{\left\langle \hspace{1.2pt}#1\left|\,#2\right.\right\rangle }',
             }
         }
     }

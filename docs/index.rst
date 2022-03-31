@@ -65,11 +65,20 @@ but Unitair is **not**...
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Tutorial:
 
-   install
-   first_example
-   quantum_states
+   tutorial/install
+   tutorial/first_example
+   tutorial/quantum_states
+
+.. toctree::
+   :maxdepth: 2
+   :caption: API
+
+   api/states
+   api/initializations
+   api/apply_operators
+   api/gates
 
 
 

@@ -20,8 +20,8 @@ strengths. You can
 
 * Apply gates and other operations to a batch of states
 * Use gradients to track gate parameters or parameters used to build an initial state
-* Set `device='cuda'` to get GPU-acceleration
-* Mix `unitair` functions with `torch.nn` networks or any other PyTorch functionality
+* Set ``device='cuda'`` to get GPU-acceleration
+* Mix ``unitair`` functions with ``torch.nn`` networks or any other PyTorch functionality
 
 The design of Unitair encourages users to do things that, really, should never
 be done to quantum states. Their components can be directly read and

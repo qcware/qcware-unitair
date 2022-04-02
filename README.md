@@ -1,7 +1,10 @@
 #Unitair: PyTorch-based quantum circuits
 
+[![Documentation Status](https://readthedocs.org/projects/unitair/badge/?version=latest)](https://unitair.readthedocs.io/en/latest/?badge=latest)
+      
+
 Unitair is a lightweight Python package that 
-brings quantum computing to PyTorch. 
+brings quantum computing to PyTorch.
 
 Unitair differs from other quantum computing software packages
 in important ways. Quantum states are PyTorch tensors (the PyTorch
@@ -16,6 +19,8 @@ You can
 - Use gradients to track gate parameters or parameters used to build an initial state
 - Set `device='cuda'` to get GPU-acceleration
 - Mix `unitair` functions with `torch.nn` networks or any other PyTorch functionality
+
+[Documentation for Unitair is now available.](https://unitair.readthedocs.io/)
 
 
 ### Cheat whenever possible

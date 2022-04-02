@@ -1,16 +1,13 @@
+*********************
 Introductory Examples
-=====================
+*********************
 
 We can introduce several core ideas of
 ``unitair`` with simple physical examples involving one qubit.
-We use terms like "spin 1/2"
-and "magnetic moment" in this section, but there is absolutely
-no need to know what these mean to understand our example or
-``unitair`` in general.
 
 
 Initializing a State
-~~~~~~~~~~~~~~~~~~~~
+====================
 
 We start by creating an initial state for only one qubit. One
 qubit has a two-dimensional complex Hilbert space of states,
@@ -58,7 +55,7 @@ corresponds to the ``Tensor``
 
 
 Operating on a State
-~~~~~~~~~~~~~~~~~~~~
+====================
 
 Consider an operator that acts on one qubit in the computational basis
 according to the matrix
@@ -140,7 +137,7 @@ first dimension being for real and imaginary parts.
 
 
 Operating on Batches of States
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+==============================
 
 What if we wanted to compute the action of :math:`Q` on
 both :math:`\ket{0}` and :math:`\ket{1}`? We could
@@ -212,7 +209,7 @@ in a loop, even on a CPU.
 
 
 Batched Operations on a State
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+=============================
 
 Batching is a fundamental concept for NumPy and PyTorch and indeed
 it is central to Unitair. Not only can one operator act on many states,

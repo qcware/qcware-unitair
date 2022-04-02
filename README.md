@@ -1,4 +1,4 @@
-# unitair: PyTorch-based quantum circuits
+#Unitair: PyTorch-based quantum circuits
 
 Unitair is a lightweight Python package that 
 brings quantum computing to PyTorch. 

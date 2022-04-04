@@ -2,11 +2,6 @@
 Quantum States
 **************
 
-.. attention::
-
-    This section is under construction.
-
-
 This section explains how quantum states are
 represented in Unitair. To work with Unitair comfortably,
 it's necessary to understand a subset of this section.
@@ -178,6 +173,12 @@ corresponds to
     We only recommend using this function for experimentation
     as it isn't as fast as ``unit_vector``.
 
+.. note::
+
+    PyTorch has a complex data type which is not currently
+    used with Unitair. Unitair will switch to using a complex
+    data type in a later major release.
+
 .. _batch-dims:
 
 Batch Dimensions
@@ -260,13 +261,3 @@ can quickly get very large.
     :caption: Output
 
     torch.Size([30, 5, 2, 1024])
-
-
-
-
-
-
-
-
-
-

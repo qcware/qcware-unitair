@@ -519,7 +519,7 @@ def apply_to_qubits_tensor(
 ):
     """Apply single qubit gates to specified qubits of state in tensor layout.
     """
-    field = Field(field.lower())
+    field = Field.from_case_insensitive(field)
 
     for gate, q in zip(operators, qubits):
         state_tensor = swap_tensor(state_tensor, (0, q), num_qubits)
@@ -528,6 +528,35 @@ def apply_to_qubits_tensor(
         )
         state_tensor = swap_tensor(state_tensor, (0, q), num_qubits)
     return state_tensor
+
+
+def new_apply_to_qubits_tensor(
+        operators: Union[Iterable[torch.Tensor]],
+        qubits: Union[Iterable[int]],
+        state_tensor: torch.Tensor,
+        num_qubits: int,
+        field: Field = Field.COMPLEX
+):
+    field = Field.from_case_insensitive(field)
+    qubits = sorted(qubits)
+
+
+    perm = list(range(num_qubits))
+    for gate, q in zip(operators, qubits):
+
+        # Track the overall permutation as we swap qubits.
+        perm[q], perm[0] = perm[0], q
+        state_tensor = swap_tensor(state_tensor, (0, q), num_qubits)
+
+        state_tensor = act_first_qubits_tensor(
+            gate, state_tensor, num_qubits, field, gate_num_qubits=1
+        )
+    return permute_qubits_tensor(
+        permutation=inverse_list_permutation(perm),
+        state_tensor=state_tensor,
+        num_qubits=num_qubits
+    )
+
 
 
 def swap(state: torch.Tensor, qubit_pair: Tuple[int, int]):

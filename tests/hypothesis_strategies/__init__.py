@@ -4,6 +4,7 @@ from .tensors import (
     state_vectors_no_batch,
     tensors,
     tensors_size_fixed,
-    sizes
+    sizes,
+    real_and_complex_torch_dtypes
 )
 

@@ -1,13 +1,13 @@
 from typing import Optional
 
 import hypothesis.strategies as st
+import numpy as np
 from hypothesis import assume
-import torch
 
-from unitair import Field, count_qubits
+from unitair import count_qubits
 from unitair.simulation.utils import gate_batch_size
 from .tensors import state_vectors, tensors_size_fixed, \
-    state_vectors_with_metadata, operators_batch_fixed, operators
+    state_vectors_with_metadata, operators
 
 
 @st.composite
@@ -27,12 +27,12 @@ def state_and_phase_angles(
         batch_size_limit=batch_size_limit,
         min_num_qubits=min_num_qubits,
         max_num_qubits=max_num_qubits,
-        field=Field.COMPLEX
+        strictly_complex=True
     ))
-    batch_dims = state.size()[:-2]
+    batch_dims = state.size()[:-1]
     num_qubits = count_qubits(state)
     shape = batch_dims + (2 ** num_qubits,)
-    angles = draw(tensors_size_fixed(shape=shape))
+    angles = draw(tensors_size_fixed(shape=shape, dtype=np.dtype('float32')))
     return {
         'angles': angles,
         'state_vector': state
@@ -48,7 +48,7 @@ def operator_and_state(
         op_max_num_qubits: int = 5,
         batch_max_num_indices: int = 3,
         batch_max_index_range: int = 5,
-        field: Optional[Field] = None,
+        strictly_complex: bool = True,
         nonzero: bool = False,
         max_abs: Optional[float] = None
 ):
@@ -63,12 +63,12 @@ def operator_and_state(
         batch_size_limit=batch_max_index_range,
         min_num_qubits=min_num_qubits,
         max_num_qubits=max_num_qubits,
-        field=field
+        strictly_complex=strictly_complex
     ))
 
     state_num_qubits = state_data['num_qubits']
     state_batch_dims = state_data['batch_dims']
-    field = state_data['field']
+    state_dtype = state_data['dtype']
 
     assume(
         state_num_qubits >= op_min_num_qubits
@@ -84,11 +84,11 @@ def operator_and_state(
         max_num_qubits=op_num_qubits,
         batch_max_num_indices=batch_max_num_indices,
         batch_max_index_range=batch_max_index_range,
-        field=field,  # Fixed to match state field
+        forced_dtype=state_dtype,
         nonzero=nonzero,
         max_abs=max_abs
     ))
-    op_batch_dims = gate_batch_size(gate=operator, field=field)
+    op_batch_dims = gate_batch_size(gate=operator)
 
     assume(
         len(op_batch_dims) == 0
@@ -100,7 +100,7 @@ def operator_and_state(
         operator=operator,
         num_qubits=op_num_qubits,
         batch_dims=op_batch_dims,
-        field=field
+        dtype=state_dtype
     )
 
     return dict(operator_data=op_data, state_data=state_data)

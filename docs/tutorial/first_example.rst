@@ -2,6 +2,12 @@
 Introductory Examples
 *********************
 
+.. warning::
+
+    Unitair was recently upgraded to use proper PyTorch complex
+    data types. This documentation is waiting for an update
+    to reflect this major change.
+
 We can introduce several core ideas of
 ``unitair`` with simple physical examples involving one qubit.
 

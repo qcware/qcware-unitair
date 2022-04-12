@@ -1,5 +1,5 @@
-from .shapes import Field, StateLayout, StateShapeError
-from .shapes import count_qubits, real_imag, real_imag_tensor
+from .shapes import StateLayout, StateShapeError
+from .shapes import count_qubits
 from .shapes import count_qubits_tensor
 from .shapes import count_qubits_gate_matrix
 from .shapes import hilbert_space_dim

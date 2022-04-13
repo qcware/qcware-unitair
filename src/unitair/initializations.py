@@ -54,8 +54,8 @@ def unit_vector(
     if dim is None:
         if num_qubits is None:
             raise TypeError(
-                'To specify a unit vector, provide either `dim` or '
-                '`num_qubits`.')
+                'To specify a unit vector, provide either `num_qubits` or '
+                ' `dim`.')
         dim = 2 ** num_qubits
     else:
         if num_qubits is not None:

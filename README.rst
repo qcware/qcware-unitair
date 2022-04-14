@@ -24,7 +24,7 @@ You can
 - Mix ``unitair`` functions with ``torch.nn`` networks or any other PyTorch functionality
 
 `Documentation for Unitair is now available.
-<https://unitair.readthedocs.io/>`_.
+<https://unitair.readthedocs.io/>`_
 
 
 Rule-Breaking is Encouraged

@@ -2,14 +2,8 @@
 Introductory Examples
 *********************
 
-.. warning::
-
-    Unitair was recently upgraded to use proper PyTorch complex
-    data types. This documentation is waiting for an update
-    to reflect this major change.
-
 We can introduce several core ideas of
-``unitair`` with simple physical examples involving one qubit.
+``unitair`` with simple physically motivated examples involving one qubit.
 
 
 Initializing a State
@@ -361,10 +355,5 @@ shown below.
     :math:`\ket{0}` is evolved by :math:`e^{-iXt}` for
     various values of :math:`t`. The important Unitair concept
     is that we performed evolution by starting with a *batch of
-    operators* :math:`\left(e^{-iX 0}, e^{-iX \delta t}, \ldots \right)`
+    operators* :math:`\left(e^{-iX \cdot 0}, e^{-iX \delta t}, \ldots \right)`
     and we applied the batch to the initial state :math:`\ket{0}`.
-
-
-
-
-

@@ -70,7 +70,7 @@ with the other discipline.
 States are Tensors
 ==================
 The class for quantum states is `torch.Tensor` rather than a new
-quantum state class. For example, the state $|00>$ is
+quantum state class. For example, the state :math:`|00>` is
 
 .. code-block:: python
 

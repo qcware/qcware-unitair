@@ -89,9 +89,7 @@ written as
     1 |00> + 0 |01> +  0 |10> + 0 |11>,
 
 the vector ``[1., 0., 0., 0.]``
-is sensible. The reason that there are two rows is that coefficients of quantum
-states are complex numbers. The first and second rows are for real an imaginary
-parts respectively.
+is sensible.
 
 As another example, :math:`-i |01>` is
 

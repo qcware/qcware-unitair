@@ -190,7 +190,7 @@ directly to the index 3 element of the original `state_batch`.
 
 Making a Bell state
 ^^^^^^^^^^^^^^^^^^^
-The Bell state :math:`\left(|00> + |11>\right) / \sqrt{2}` is typically constructed by
+The Bell state :math:`(|00> + |11>)/\sqrt{2}` is typically constructed by
 starting with the state :math:`|00>`, applying a Hadamard gate to the first
 qubit, and then applying a CNOT gate from the first to the second
 qubit. We recommend just writing down this state by hand, but
@@ -222,7 +222,7 @@ the circuit construction can be done with Unitair as an example:
 
     >>> state
     tensor([0.7071+0.j, 0.0000+0.j, 0.0000+0.j, 0.7071+0.j])
-```
+
 
 About Unitair
 =============

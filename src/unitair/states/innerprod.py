@@ -1,72 +1,59 @@
 import torch
 
-from .shapes import StateShapeError, StateLayout, Field
-from . import shapes
 
-
-def abs_squared(state: torch.Tensor, field: Field = Field.COMPLEX):
+def abs_squared(state: torch.Tensor):
     """Compute the vector of measurement probabilities for state.
+
+    For an $N$-dimensional Hilbert space, in a given basis a state
+    can be regarded as a vector (x_1, ..., x_N). This function
+    simply computes (|x_1|^2, ..., |x_N|^2).
+
+    When state is a batch, the vector of absolute value squared coefficients
+    is computed for each batch entry.
+
+    Note:
+        This function trivially wraps torch operations. We recommend its usage
+        when it improves readability.
 
     Args:
         state (Tensor): State or batch of states in vector layout. Tensor size
-            can be (*batch_dims, 2, 2^n) or (*batch_dims, 2^n) for the real
-            and complex cases.
-
-        field (Field): Field of `state`.
+            should be (*batch_dims, N). State can be real or complex.
 
     Returns:
-        Tensor with size (*batch_dims, 2^n) giving all measurement
+        Tensor with size (*batch_dims, N) giving all measurement
         probabilities for all states in the batch.
     """
-    field = Field(field.lower())
-    if field is Field.COMPLEX:
-        return (state ** 2).sum(dim=-2)
-    elif field is Field.REAL:
-        return state ** 2
-    else:
-        assert False
+    return (state.conj() * state).real
 
 
-def norm_squared(state: torch.Tensor, field: Field = Field.COMPLEX):
+def norm_squared(state: torch.Tensor):
     """Compute the L^2 norm-squared < state | state >.
 
     `state` can be a batch of states. The L^2 norm is used in the real and
     complex case.
 
+    When `state` is normalized, norm_squared(state) should return 1.
+
     Args:
         state (Tensor): State or batch of states in vector layout. Tensor size
-            can be (*batch_dims, 2, 2^n) or (*batch_dims, 2^n) for the real
-            and complex cases.
-
-        field (Field): Field of `state`.
+            can be (*batch_dims, N) where N is typically 2^(num_qubits). State
+            dtype can be real or complex.
 
     Returns:
         Tensor with size (*batch_dims,) giving the squared norm of every state
         in the batch.
     """
-    field = Field(field.lower())
-    return torch.sum(abs_squared(state, field=field), dim=-1)
+    return torch.sum(abs_squared(state), dim=-1)
 
 
+# TODO: Calling this "expectation value" is a legacy issue. We need to
+#   change the name which is API-breaking.
 def expectation_value(function_values, state):
     """Get the expectation value of a real-valued function of binary values."""
     return torch.sum(abs_squared(state) * function_values, dim=-1)
 
 
-def inner_product(state_1, state_2, field: Field = Field.COMPLEX):
+def inner_product(state_1, state_2):
     """Compute < state_1 | state_2 > (the left entry is conjugate-linear).
-
-    todo: implement batching
     """
-    field = Field(field.lower())
-
-    if field is Field.REAL:
-        return torch.sum(state_1 * state_2)
-    elif field is Field.COMPLEX:
-        real_1, imag_1 = shapes.real_imag(state_1)
-        real_2, imag_2 = shapes.real_imag(state_2)
-        real_part = torch.sum(real_1 * real_2 + imag_1 * imag_2)
-        imag_part = torch.sum(real_1 * imag_2 - imag_1 * real_2)
-        return torch.stack((real_part, imag_part))
-    else:
-        assert False, f"Impossible enumeration {field}"
+    return torch.sum(state_1.conj() * state_2)

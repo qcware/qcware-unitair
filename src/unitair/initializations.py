@@ -3,14 +3,12 @@ from typing import Union, Sequence, Optional
 import torch
 
 from . import states
-from .states import Field
 
 
 def unit_vector_from_bitstring(
         bitstring: Union[str, Sequence[int]],
         device: torch.device = torch.device("cpu"),
-        field: Field = Field.COMPLEX,
-        dtype: torch.dtype = torch.float
+        dtype: torch.dtype = torch.complex64
 ):
     """Create a unit vector from a classical bit specification.
 
@@ -41,7 +39,6 @@ def unit_vector_from_bitstring(
         index=index_implied,
         num_qubits=implied_num_bits,
         device=device,
-        field=field,
         dtype=dtype
     )
 
@@ -51,15 +48,14 @@ def unit_vector(
         num_qubits: Optional[int] = None,
         dim: Optional[int] = None,
         device: torch.device = torch.device("cpu"),
-        field: Field = Field.COMPLEX,
-        dtype: torch.dtype = torch.float
+        dtype: torch.dtype = torch.complex64
 ):
     """Create a real or complex unit vector in a Hilbert space."""
     if dim is None:
         if num_qubits is None:
             raise TypeError(
-                'To specify a unit vector, provide either `dim` or '
-                '`num_qubits`.')
+                'To specify a unit vector, provide either `num_qubits` or '
+                ' `dim`.')
         dim = 2 ** num_qubits
     else:
         if num_qubits is not None:
@@ -67,15 +63,8 @@ def unit_vector(
                 'Unit vector can be specified by `dim` or `num_qubits` but '
                 'not both.'
             )
-    field = Field.from_case_insensitive(field)
-    if field is Field.REAL:
-        vector = torch.zeros(dim, device=device, dtype=dtype)
-        vector[index] = 1
-    elif field is Field.COMPLEX:
-        vector = torch.zeros(2, dim, device=device, dtype=dtype)
-        vector[0, index] = 1
-    else:
-        assert False, f"Impossible enumeration {field}"
+    vector = torch.zeros(dim, device=device, dtype=dtype)
+    vector[index] = 1
     return vector
 
 
@@ -83,38 +72,31 @@ def rand_state(
         num_qubits: int,
         batch_dims: Optional[Sequence] = None,
         device: torch.device = torch.device("cpu"),
-        field: Union[Field, str] = Field.COMPLEX,
+        dtype: torch.dtype = torch.complex64,
         requires_grad: bool = False
 ) -> torch.Tensor:
     """Create a normalized random state in vector layout.
 
-    States are uniformly distributed on the unit sphere in C^N where N = 2^n.
+    States are drawn from a uniform distribution on the unit sphere embedded
+    in F^N where N = 2^(num_qubits) and F the complex numbers when the
+    specified dtype is complex and the reals when the dtype is real.
 
     When batch_dims is provided, a batch of random states is generated with
     specified shape.
     """
     if batch_dims is None:
-        batch_dims = torch.Size()
-    else:
-        batch_dims = torch.Size(batch_dims)
-    field = Field(field.lower())
-
-    if field is Field.COMPLEX:
-        size = torch.Size((2, 2 ** num_qubits))
-    elif field is Field.REAL:
         size = torch.Size((2 ** num_qubits,))
     else:
-        assert False, f"Impossible enumeration {field}."
-    state_num_dims = len(size)
+        size = torch.Size(batch_dims) + torch.Size((2 ** num_qubits,))
 
-    size = batch_dims + size
     state = torch.randn(
         size,
         device=device,
-        requires_grad=requires_grad
+        requires_grad=requires_grad,
+        dtype=dtype
     )
-    norm = states.norm_squared(state, field=field).sqrt()
-    norm_size_for_division = norm.size() + (1,) * state_num_dims
+    norm = states.norm_squared(state).sqrt()
+    norm_size_for_division = norm.size() + (1,)
     return state / norm.view(norm_size_for_division)
 
 
@@ -122,6 +104,7 @@ def uniform_superposition(
         num_qubits: int,
         batch_dims: Optional[Sequence] = None,
         device: torch.device = torch.device("cpu"),
+        dtype: torch.dtype = torch.complex64,
         requires_grad: bool = False
 ):
     """Create the uniform superposition state |+...+>.
@@ -130,12 +113,16 @@ def uniform_superposition(
     dimensions can be provided in which case the same uniform superposition
     is copied to form a batch with specified shape.
     """
-    real = 2**(-num_qubits/2.) * torch.ones(2**num_qubits, device=device)
-    imag = torch.zeros(2**num_qubits, device=device)
-    state = torch.stack((real, imag), dim=0)
+    scaling = 2 ** (-num_qubits/2.)
+    state = scaling * torch.ones(
+        2 ** num_qubits,
+        device=device,
+        dtype=dtype
+    )
+
     if batch_dims is not None:
         batch_dims = torch.Size(batch_dims)
-        state = state.repeat(batch_dims + (1, 1))
+        state = state.repeat(batch_dims + (1,))
 
     state.requires_grad_(requires_grad)
     return state

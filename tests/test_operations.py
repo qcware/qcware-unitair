@@ -50,18 +50,15 @@ def test_apply_operator_matches_act_first_qubits(op_and_state):
     operator = op_data['operator']
     state_vector = state_data['state_vector']
     op_num_qubits = op_data['num_qubits']
-    field = op_data['field']
 
     result_act_first_qubits = act_first_qubits(
         operator=operator,
         state=state_vector,
-        field=field
     )
     result_apply_operator = apply_operator(
         operator=operator,
         qubits=range(op_num_qubits),
         state=state_vector,
-        field=field
     )
 
     assert torch.isclose(
@@ -87,7 +84,6 @@ def test_act_first_qubits_batching(op_and_state, indices):
     out = act_first_qubits(
         operator=operator,
         state=state_vector,
-        field=op_data['field'],
     )
 
     # If there are no state batch dims, there's nothing to check
@@ -106,8 +102,6 @@ def test_act_first_qubits_batching(op_and_state, indices):
 
     assume(len(indices) == len(batch_dims))
 
-
-
     assume(all(i < j for i, j in zip(indices, batch_dims)))
     out_entry = out[indices]
 
@@ -124,7 +118,6 @@ def test_act_first_qubits_batching(op_and_state, indices):
     unbatched_out = act_first_qubits(
         operator=operator_entry,
         state=state_vector_entry,
-        field=op_data['field'],
     )
     assert torch.isclose(out_entry, unbatched_out).all()
 
@@ -146,7 +139,6 @@ def test_apply_all_qubits_batching(op_and_state, indices):
     out = apply_all_qubits(
         operator=operator,
         state=state_vector,
-        field=op_data['field'],
     )
 
     # If there are no state batch dims, there's nothing to check
@@ -168,7 +160,6 @@ def test_apply_all_qubits_batching(op_and_state, indices):
     unbatched_out = apply_all_qubits(
         operator=operator_entry,
         state=state_vector_entry,
-        field=op_data['field'],
     )
     assert torch.isclose(out_entry, unbatched_out).all()
 

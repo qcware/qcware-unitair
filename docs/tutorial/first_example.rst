@@ -3,7 +3,7 @@ Introductory Examples
 *********************
 
 We can introduce several core ideas of
-``unitair`` with simple physical examples involving one qubit.
+``unitair`` with simple physically motivated examples involving one qubit.
 
 
 Initializing a State
@@ -18,23 +18,24 @@ and we can write its basis vectors as
     \ket{0} =& \left(\begin{array}{c} 1\\ 0 \end{array}\right)\\
     \ket{1} =& \left(\begin{array}{c} 0\\ 1 \end{array}\right)
 
-With PyTorch, we encode these states with tensors
-of size (2, 2):
+With PyTorch, we encode these states with tensors of size (2,):
 
 .. code-block:: python
 
     # No need to import unitair!
     import torch
 
-    ket_0 = torch.tensor([[1., 0.],
-                          [0., 0.]])
+    ket_0 = torch.tensor([1.+0.j, 0.+0.j])
 
-    ket_1 = torch.tensor([[0., 1.],
-                          [0., 0.]])
+    ket_1 = torch.tensor([0.+0.j, 1.+0.j])
 
-The role of the second dimension is obvious. The
-first dimension is to allow for real and imaginary
-parts. For example, the state
+If you happen to be new to quantum mechanics, the use
+of complex data types may surprise you. The first
+"sentence" of quantum mechanics is that states of
+physical systems are points in a complex Hilbert space,
+and we therefore need complex numbers.
+
+As another example, the state
 
 .. math::
 
@@ -44,8 +45,7 @@ corresponds to the ``Tensor``
 
 .. code-block:: python
 
-    torch.tensor([[ 0.0000,  0.7071],
-                  [-0.7071,  0.0000]])
+    torch.tensor([0.-0.7071j, 0.7071+0.j])
 
 .. tip::
 
@@ -66,23 +66,25 @@ according to the matrix
     5+i & -1
     \end{array}\right)
 
-Unitair has a convention for such a matrix which has the same
-idea as in the case of states. Namely:
+Unitair expects such a matrix to be encoded in the obvious way:
 
 .. code-block:: python
     :name: q-matrix
 
-    q = torch.tensor([[[ 1.,  5.],
-                       [ 5.,  -1.]],
+    q = torch.tensor([[ 1.+0.j,  5.-1.j],
+                      [ 5.+1.j, -1.+0.j]])
 
-                      [[ 0., -1.],
-                       [ 1.,  0.]]])
 
-The ``Tensor`` ``q`` has size (2, 2, 2). It's better to think of
-this size as :math:`(2, 2^1, 2^1)` where the 1's are due to
-the operator acting on one qubit. A two-qubit operator would have
-size :math:`(2, 2^2, 2^2) = (2, 4, 4)`. As with states,
-the first dimension is for real and imaginary parts.
+The ``Tensor`` ``q`` has size (2, 2), but it's helpful to think of
+this size as :math:`(2^1, 2^1)` where the 1's are because
+the operator can act on one qubit. A five-qubit operator would have
+size :math:`(2^5, 2^5) = (32, 32)`.
+
+.. tip::
+
+    Because Unitair uses the obvious for matrices, you can
+    use ``torch.matmul`` for matrix multiplication and ``torch.adjoint``
+    for hermitian conjugates.
 
 We can apply the operator :math:`Q` to the state :math:`\ket{0}`:
 
@@ -119,21 +121,9 @@ To perform this operation with Unitair, we use the function
     :caption: Interactive Interpreter
 
     >>> new_state
-    tensor([[1., 5.],
-            [0., 1.]])
+    tensor([1.+0.j, 5.+1.j])
 
-This is indeed the correct state :math:`\ket{0} + (5+i)\ket{1}`
-expressed as a `Tensor` with the unitair convention of the
-first dimension being for real and imaginary parts.
-
-
-
-.. tip::
-
-    To extract real and imaginary parts of a state, you
-    can use ``unitair.states.real_imag``. This function
-    is especially useful when dealing with
-    batches of states (discussed shortly).
+This is indeed the correct state :math:`\ket{0} + (5+i)\ket{1}`.
 
 
 Operating on Batches of States
@@ -141,7 +131,7 @@ Operating on Batches of States
 
 What if we wanted to compute the action of :math:`Q` on
 both :math:`\ket{0}` and :math:`\ket{1}`? We could
-use ``apply_operator`` twice, but fails to take
+use ``apply_operator`` twice, but that fails to take
 advantage of vectorization, the C backend of PyTorch
 and, if available, CUDA.
 
@@ -151,24 +141,23 @@ the tensor ``torch.stack([ket_0, ket_1])`` which is the same as
 
 .. code-block:: python
 
-    state_batch = torch.tensor([[[1., 0.],
-                                 [0., 0.]],
+    state_batch = torch.tensor([[1.+0.j, 0.+0.j],
+                                [0.+0.j, 1.+0.j]])
 
-                                [[0., 1.],
-                                 [0., 0.]]])
-
-Which has size (2, 2, 2). The repeated twos are
-just an unfortunate coincidence, and the more general form
-is
+This state has size :math:`(2, 2)`. The repeated 2's just a coincidence
+of course--the size is ``(batch_length, hilbert_space_dimension)`` where
+``hilbert_space_dimension`` is :math:`2^n` for :math:`n` qubits. In fact,
+an arbitrary number of batch dimensions is allowed
+so the most general size for a quantum state is
 
 .. code-block:: python
 
-    (batch_length, 2, hilbert_space_dimension)
+    (*optional_batch_dimensions, hilbert_space_dimension)
 
-where ``hilbert_space_dimension`` is :math:`2^n` for :math:`n` qubits.
 All Unitair functionality is built to understand that
-states are formatted with this structure, and deviating from it
-is more likely to raise errors than to give incorrect results.
+states are formatted with this structure; deviating from it
+is more likely to raise errors than to give incorrect results, but
+the user is expected to be careful to conform to the convention.
 
 .. note::
 
@@ -177,7 +166,9 @@ is more likely to raise errors than to give incorrect results.
     eliminate this issue, but it would come with other costs.
     Sticking with a plain ``Tensor`` means that PyTorch functionality
     can be used without the burden of converting between types and
-    it makes Unitair easier to learn for PyTorch users.
+    it makes Unitair much easier to learn for PyTorch users. It also
+    makes it easier to integrate Unitair into existing
+    software designed with PyTorch.
 
 Now let's apply :math:`Q` to both :math:`\ket{0}` and :math:`\ket{1}`:
 
@@ -194,11 +185,8 @@ Now let's apply :math:`Q` to both :math:`\ket{0}` and :math:`\ket{1}`:
     :caption: Interactive Interpreter
 
     >>> new_state_batch
-        tensor([[[ 1.,  5.],
-                 [ 0.,  1.]],
-
-                [[ 5., -1.],
-                 [-1.,  0.]]])
+    tensor([[ 1.+0.j,  5.+1.j],
+            [ 5.-1.j, -1.+0.j]])
 
 The result is a new batch of states with the expected structure. The first
 batch entry is :math:`Q \ket{0}` and the second is :math:`Q \ket{1}`.
@@ -227,18 +215,8 @@ one-to-one correspondence.)
 
 When we
 :ref:`constructed the matrix<q-matrix>` :math:`Q` as
-a ``Tensor``, it had size ``(2, 2, 2)`` which has the form
-
-.. code-block:: none
-    :caption: Operator size (no batch)
-
-    (
-        2,   (Real and imaginary parts)
-        2^k, (Matrix rows, k = number of qubits the matrix acts on)
-        2^k, (Matrix columns)
-    )
-
-Thus, we get :math:`(2, 2, 2)` when :math:`k=1`.
+a ``Tensor``, it had size :math:`(2, 2) = (2^k, 2^k)` where :math:`k=1` is
+the number of qubits on which :math:`Q` acts.
 
 To create a batch of operators, we just add an additional dimension
 on the left:
@@ -249,7 +227,6 @@ on the left:
 
     (
         batch_length,
-        2,   (Real and imaginary parts)
         2^k, (Matrix rows)
         2^k, (Matrix columns)
     )
@@ -292,17 +269,14 @@ us to construct :math:`e^{-i t X}` very easily:
 
     >>> from unitair.gates import exp_x
     >>> exp_x(.5)
-    tensor([[[ 0.8776,  0.0000],
-             [ 0.0000,  0.8776]],
-
-            [[ 0.0000, -0.4794],
-             [-0.4794,  0.0000]]])
+    tensor([[0.8776-0.0000j, -0.0000-0.4794j],
+            [-0.0000-0.4794j, 0.8776-0.0000j]])
 
 You can confirm that this operation is as expected.
 
 Now what if we want to consider a batch of different parameters :math:`t`?
 
-.. code-block::
+.. code-block:: python
 
     import torch
     from math import pi
@@ -316,24 +290,16 @@ Now what if we want to consider a batch of different parameters :math:`t`?
     :caption: Interactive Interpreter
 
     >>> gate_batch.size()
-    torch.Size([315, 2, 2, 2])
+    torch.Size([315, 2, 2])
 
     >>> gate_batch[0]
-    tensor([[[1., 0.],
-             [0., 1.]],
-
-            [[0., -0.],
-             [-0., 0.]]])
+    tensor([[1.+0.j, 0.+0.j],
+            [0.+0.j, 1.+0.j]])
 
     >>> gate_batch[1]
-    tensor([[[ 0.9999,  0.0000],
-             [ 0.0000,  0.9999]],
+    tensor([[0.9999-0.0000j, 0.0000-0.0100j],
+            [0.0000-0.0100j, 0.9999-0.0000j]])
 
-            [[ 0.0000, -0.0100],
-             [-0.0100,  0.0000]]])
-
-This is all consistent with
-the :ref:`expected batched operator size<op-size-one-batch-dim>`.
 
 Let's now apply *all* of these operators to :math:`\ket{0}`:
 
@@ -350,24 +316,21 @@ Let's now apply *all* of these operators to :math:`\ket{0}`:
     :caption: Interactive Interpreter
 
     >>> states.size()
-    torch.Size([315, 2, 2])
+    torch.Size([315, 2])
 
-    # The first 3 states rotated away from |0>
-    >>> states[:3]
-    tensor([[[ 1.0000,  0.0000],
-             [ 0.0000,  0.0000]],
+    # The first 5 states rotated away from |0>
+    >>> states[:5]
+    tensor([[1.0000+0.0000j, 0.0000+0.0000j],
+            [0.9999+0.0000j, 0.0000-0.0100j],
+            [0.9998+0.0000j, 0.0000-0.0200j],
+            [0.9996+0.0000j, 0.0000-0.0300j],
+            [0.9992+0.0000j, 0.0000-0.0400j]])
 
-            [[ 0.9999,  0.0000],
-             [ 0.0000, -0.0100]],
-
-            [[ 0.9998,  0.0000],
-             [ 0.0000, -0.0200]]])
 
     # The last state is *almost* rotated by 360 degrees and returns to -|0>
-    # rather than |0>, a famous property of half-integer spin particles.
+    # rather than |0>, a famous property of half-integer spin particles:
     >>> states[-1]
-    tensor([[-1.0000,  0.0000],
-            [ 0.0000, -0.0016]])
+    tensor([-1.0000+0.0000j,  0.0000-0.0016j])
 
 We can ask Unitair about the probabilities of
 measuring :math:`\ket{0}` and :math:`\ket{1}`:
@@ -392,10 +355,5 @@ shown below.
     :math:`\ket{0}` is evolved by :math:`e^{-iXt}` for
     various values of :math:`t`. The important Unitair concept
     is that we performed evolution by starting with a *batch of
-    operators* :math:`\left(e^{-iX 0}, e^{-iX \delta t}, \ldots \right)`
+    operators* :math:`\left(e^{-iX \cdot 0}, e^{-iX \delta t}, \ldots \right)`
     and we applied the batch to the initial state :math:`\ket{0}`.
-
-
-
-
-

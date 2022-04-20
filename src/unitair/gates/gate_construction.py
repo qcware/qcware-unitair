@@ -4,7 +4,7 @@ from typing import Optional
 
 
 @decorator.decorator
-def parameterized_gate(gate_function, *args):
+def parameterized_gate(gate_function, strictly_complex: bool = False, *args):
     """Build a single qubit gate given a gate function.
 
     This is intended to be used as a decorator. The gate function takes
@@ -20,37 +20,38 @@ def parameterized_gate(gate_function, *args):
     elif params.dim() == 0:
         params = params.unsqueeze(0)
         squeeze = True
-    # elif params.dim() != 1:
-    #     raise ValueError(
-    #         "angle should be a tensor with no more than 1 index.")
 
     gate = gate_function(params)
     if not isinstance(gate, torch.Tensor):
         gate = nested_stack(gate, roll=True)
     if squeeze:
         gate = gate.squeeze(0)
+
+    if strictly_complex:
+        if not torch.is_complex(gate):
+            raise TypeError(
+                'This parameterized gate is required to be complex but the\n'
+                f'gate ended up having dtype {gate.dtype}. Check the\n'
+                f'construction of the gate decorated with parameterized_gate,\n'
+                f'and ensure that it returns a complex Tensor with the given\n'
+                f'parameters (which have dtype {params.dtype}).')
     return gate
 
 
 @decorator.decorator
-def constant_gate(gate_function, real_or_imag: Optional[str] = None, *args):
+def constant_gate(gate_function, strictly_complex: bool = False, *args):
     device = args[0]
+    dtype = args[1]
     if device is None:
         device = torch.device("cpu")
     gate = torch.tensor(gate_function(), device=device)
-    if real_or_imag is None:
-        return gate
-    else:
-        zeros = torch.zeros(size=gate.size(), device=device)
-        if real_or_imag.lower() == 'real':
-            complex_gate = [gate, zeros]
-        elif real_or_imag.lower() == 'imag':
-            complex_gate = [zeros, gate]
-        else:
-            raise ValueError(
-                'argument real_or_imag should be \'real\' or \'imag\'.\n'
-                f'Found {real_or_imag}.')
-        return torch.stack(complex_gate)
+    if dtype is not None:
+        gate = gate.to(dtype=dtype)
+    if strictly_complex:
+        if not torch.is_complex(gate):
+            raise TypeError('This gate requires a complex dtype, but it ended '
+                            f'up with dtype {gate.dtype}.')
+    return gate
 
 
 def nested_stack(params, roll: bool = False):

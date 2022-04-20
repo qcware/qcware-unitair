@@ -1,31 +1,14 @@
-from typing import Iterable, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import torch
 from hypothesis.extra.numpy import arrays, array_shapes, from_dtype
 from hypothesis import assume
 import numpy as np
 
-from unitair.states.shapes import Field
-
 
 import hypothesis.strategies as st
 
 NONZERO_CUT = 1e-6
-
-
-def _norm(x: torch.Tensor, field: Field):
-    """Get the norm of a state in vector layout.
-
-    This function is redundant with unitair functionality to avoid
-    circular testing.
-    """
-    if field is Field.REAL:
-        return torch.norm(x, dim=-1)
-
-    elif field is Field.COMPLEX:
-        return torch.norm(x, dim=[-1, -2])
-    else:
-        raise TypeError(f'{field} is not a Field.')
 
 
 def hilbert_space_dimensions(max_num_qubits, allow_0_qubits: bool = False):
@@ -40,6 +23,13 @@ def hilbert_space_dimensions(max_num_qubits, allow_0_qubits: bool = False):
     return st.builds(exponentiate, st.integers(min_num_qubits, max_num_qubits))
 
 
+torch_dtype_to_numpy = {
+    torch.complex64: np.dtype('complex64'),
+    torch.complex128: np.dtype('complex128'),
+    torch.float32: np.dtype('float32'),
+    torch.float64: np.dtype('float64'),
+}
+
 @st.composite
 def tensors(
         draw,
@@ -47,7 +37,7 @@ def tensors(
         max_dims: int = 3,
         min_side: int = 1,
         max_side: int = 1024,
-        dtype: np.dtype = np.dtype('float32'),
+        dtype: np.dtype = np.dtype('complex64'),
         allow_infinity: bool = False
 ):
     """Strategy for torch.Tensor objects.
@@ -73,14 +63,28 @@ def tensors(
     return torch.tensor(array)
 
 
+def real_and_complex_torch_dtypes(strictly_complex: bool):
+    if strictly_complex:
+        return st.just(torch.complex64)
+    else:
+        return st.sampled_from([torch.complex64, torch.float32])
+
+
+def real_and_complex_np_dtypes(strictly_complex: bool):
+    if strictly_complex:
+        return st.just(np.dtype('complex64'))
+    else:
+        return st.sampled_from([np.dtype('complex64'), np.dtype('float32')])
+
+
 @st.composite
 def tensors_size_fixed(
         draw,
         shape: Union[Tuple[int], torch.Size],
-        dtype: np.dtype = np.dtype('float32'),
+        dtype: np.dtype = np.dtype('complex64'),
         allow_infinity: bool = False
 ):
-    """Strategy for Tensor objects with definite shape."""
+    """Strategy for Tensor objects with definite shape and dtype."""
     shape = tuple(shape)
     element_strategy = from_dtype(
         dtype=dtype, allow_nan=False, allow_infinity=allow_infinity)
@@ -98,20 +102,12 @@ def state_vector_size(
         batch_size_limit: int = 3,
         min_num_qubits: int = 1,
         max_num_qubits: int = 8,
-        field: Field = Field.COMPLEX
 ):
     def construct_state_size(
             batch_dims: Tuple[int, ...],
             num_qubits: int
     ):
-        if field is Field.COMPLEX:
-            field_dim = (2,)
-        elif field is Field.REAL:
-            field_dim = ()
-        else:
-            raise TypeError('Field must be REAL or COMPLEX.')
-
-        return batch_dims + field_dim + (2 ** num_qubits,)
+        return batch_dims + (2 ** num_qubits,)
 
     batch_dim_strategy = array_shapes(
         min_dims=0,
@@ -133,7 +129,7 @@ def state_vectors(
         batch_size_limit: int = 3,
         min_num_qubits: int = 1,
         max_num_qubits: int = 8,
-        field: Optional[Field] = Field.COMPLEX,
+        strictly_complex: bool = True
 ):
     """Strategy for drawing normalized states in vector layout.
 
@@ -143,45 +139,45 @@ def state_vectors(
         batch_size_limit: The largest allowed dimension for each batch index.
         min_num_qubits: The smallest number of qubits allowed.
         max_num_qubits: The largest number of qubits allowed.
-        field: Whether the state is real or complex. If None, the strategy
-            can draw from either.
+        strictly_complex: When True, only draw complex dtypes.
     """
-    if field is None:
-        field = draw(st.sampled_from(Field))
+    dtype = draw(real_and_complex_np_dtypes(strictly_complex))
     size = draw(
         state_vector_size(
             batch_rank_limit=batch_rank_limit,
             batch_size_limit=batch_size_limit,
             min_num_qubits=min_num_qubits,
             max_num_qubits=max_num_qubits,
-            field=field)
-    )
+        ))
     element_strategy = from_dtype(
-        dtype=np.dtype('float32'),
+        dtype=dtype,
         min_value=-1, max_value=1,
         allow_nan=False, allow_infinity=False
     )
     array = draw(arrays(
-        dtype=np.dtype('float32'),
+        dtype=dtype,
         shape=size,
         elements=element_strategy
     ))
+
+    # min_value and max_value don't avoid large arrays for complex cases.
+    # TODO: This might have something to do with tests running very slowly.
+    #   Need to further investigate!
+    if np.iscomplexobj(array):
+        assume((np.abs(array) < 2.).all())
     state = torch.tensor(array)
 
-    state_norm = _norm(state, field)
+    state_norm = torch.norm(state, dim=-1)
     # Manually try to avoid zero states with a random shift
     if (state_norm.abs() < NONZERO_CUT).any():
         state = state + .1 * torch.rand_like(state)
-        state_norm = _norm(state, field)
+        state_norm = torch.norm(state, dim=-1)
 
     # At this point, we "assume" that the states are all nonzero
     assume(
         (state_norm.abs() > NONZERO_CUT).all()
     )
-    if field is Field.REAL:
-        state_norm.unsqueeze_(-1)
-    else:
-        state_norm.unsqueeze_(-1).unsqueeze_(-1)
+    state_norm.unsqueeze_(-1)
 
     return state / state_norm
 
@@ -193,38 +189,30 @@ def state_vectors_with_metadata(
         batch_size_limit: int = 3,
         min_num_qubits: int = 1,
         max_num_qubits: int = 8,
-        field: Optional[Field] = Field.COMPLEX
+        strictly_complex: bool = True,
 ):
     num_qubits = draw(st.integers(min_num_qubits, max_num_qubits))
-    if field is None:
-        field = draw(st.sampled_from(Field))
-
     state_vector = draw(state_vectors(
         batch_rank_limit,
         batch_size_limit,
         min_num_qubits=num_qubits,
         max_num_qubits=num_qubits,
-        field=field,
+        strictly_complex=strictly_complex
     ))
+    batch_dims = state_vector.size()[:-1]
 
-    if field is Field.REAL:
-        batch_dims = state_vector.size()[:-1]
-    elif field is Field.COMPLEX:
-        batch_dims = state_vector.size()[:-2]
-    else:
-        raise RuntimeError('Unexpected Field: ', field)
     return {
         'state_vector': state_vector,
         'num_qubits': num_qubits,
         'batch_dims': batch_dims,
-        'field': field,
+        'dtype': state_vector.dtype,
     }
 
 
 def state_vectors_no_batch(
         min_num_qubits: int = 1,
         max_num_qubits: int = 8,
-        field: Optional[Field] = Field.COMPLEX
+        strictly_complex: bool = True
 ):
     """Convenience wrapper of state_vectors strategy with batching off.
 
@@ -235,7 +223,7 @@ def state_vectors_no_batch(
         batch_size_limit=1,
         min_num_qubits=min_num_qubits,
         max_num_qubits=max_num_qubits,
-        field=field,
+        strictly_complex=strictly_complex
     )
 
 
@@ -263,12 +251,15 @@ def operators(
         max_num_qubits: int = 1,
         batch_max_num_indices: int = 3,
         batch_max_index_range: int = 5,
-        field: Optional[Field] = None,
+        strictly_complex: Optional[bool] = True,
+        forced_dtype: Optional[torch.dtype] = None,
         nonzero: bool = False,
         max_abs: Optional[float] = None
 ):
-    if field is None:
-        field = draw(st.sampled_from(Field))
+    if forced_dtype is not None:
+        dtype = torch_dtype_to_numpy[forced_dtype]
+    else:
+        dtype = draw(real_and_complex_np_dtypes(strictly_complex))
     batch_dims = draw(
         sizes(
             min_num_dims=0,
@@ -278,17 +269,12 @@ def operators(
         )
     )
 
-    if field is Field.COMPLEX:
-        field_dims = (2,)
-    else:
-        field_dims = ()
-
     num_qubits = draw(st.integers(min_num_qubits, max_num_qubits))
     matrix_dims = (2 ** num_qubits, 2 ** num_qubits)
 
-    all_dims = batch_dims + field_dims + matrix_dims
+    all_dims = batch_dims + matrix_dims
 
-    result = draw(tensors_size_fixed(shape=all_dims))
+    result = draw(tensors_size_fixed(shape=all_dims, dtype=dtype))
     if nonzero:
         assume(
             (result.abs() > NONZERO_CUT).all()
@@ -307,24 +293,18 @@ def operators_batch_fixed(
         batch_dims: torch.Size = torch.Size([]),
         min_num_qubits: int = 1,
         max_num_qubits: int = 1,
-        field: Optional[Field] = None,
+        strictly_complex: bool = True,
         nonzero: bool = False,
         max_abs: Optional[float] = None
 ):
-    if field is None:
-        field = draw(st.sampled_from(Field))
-
-    if field is Field.COMPLEX:
-        field_dims = (2,)
-    else:
-        field_dims = ()
+    dtype = draw(real_and_complex_np_dtypes(strictly_complex))
 
     num_qubits = draw(st.integers(min_num_qubits, max_num_qubits))
     matrix_dims = (2 ** num_qubits, 2 ** num_qubits)
 
-    all_dims = batch_dims + field_dims + matrix_dims
+    all_dims = batch_dims + matrix_dims
 
-    result = draw(tensors_size_fixed(shape=all_dims))
+    result = draw(tensors_size_fixed(shape=all_dims, dtype=dtype))
     if nonzero:
         assume(
             (result.abs() > NONZERO_CUT).all()
@@ -335,4 +315,3 @@ def operators_batch_fixed(
             (result.abs() < max_abs).all()
         )
     return result
-

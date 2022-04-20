@@ -1,6 +1,6 @@
+import warnings
 from typing import Iterable, Tuple, Union, Optional
 import torch
-from unitair.states import Field
 import unitair.states as states
 from .utils import count_gate_batch_dims
 from unitair.utils import permutation_to_front, inverse_list_permutation
@@ -12,37 +12,39 @@ from ..gates import hadamard
 
 
 def apply_phase(angles: torch.Tensor, state: torch.Tensor):
-    """Multiply the jth component of state by e^(-i angles_j).
+    """Multiply the kth component of state by e^(-i angles_k).
 
-    This function is inapplicable for real vector spaces.
+    Batching for this function follows PyTorch multiplication batching.
+    Here are some examples:
 
-    If angles and state have batch dimensions, then both
-    batch dimensions should be identical. In this case, each batch
-    entry of angle acts on each corresponding state batch entry.
+    If `angles` is a scalar (a Tensor with only one element) and `state`
+    is a state in vector layout with arbitrary batch dimensions, then the
+    angle is applied to every component of every state.
 
-    If angles does not have batch dimensions but state does, then
-    the same angles are applied to every state in the batch.
+    If `angles` is a vector with size (2^n) (where n is the number of qubits)
+    and `state` is a Tensor with arbitrary batch dimensions, then
+    the specified phase angle for each component is applied to each state in
+    the batch of states.
 
-    # TODO: clarify more possible batching cases.
+    When `angles` has the same batch dimensions as `state`, we apply phase
+    angles to states in one-to-one correspondence.
+
+    To apply a batch of phases to a batch of states, but to use the same
+    angle for each component of a given state, we can give `angles` size
+    (*batch_dims, 1) while `state` will have size (*batch_dims, 2^n).
 
     Args:
-        angles: Size (*batch dims, Hilbert space dim)
-        state: Size (*batch dims, 2, Hilbert space dim)
+        angles: Size (*angle_batch_dims, Hilbert space dim)
+        state: Size (*state_batch_dims, Hilbert space dim)
     """
-    cos = angles.cos()
-    sin = angles.sin()
-    real, imag = states.real_imag(state)
-    return torch.stack((
-        cos * real + sin * imag,
-        -sin * real + cos * imag
-    ), dim=-2)
+    phase_factors = torch.exp(-1.j * angles)
+    return phase_factors * state
 
 
 def apply_operator(
         operator: torch.Tensor,
         qubits: Iterable[int],
         state: torch.Tensor,
-        field: Union[Field, str] = Field.COMPLEX
 ):
     """Apply an operator to a state in vector layout.
 
@@ -109,21 +111,17 @@ def apply_operator(
         operator on `state`, the one initial state.
 
     Args:
-        operator: 'Matrix' with size (*operator_batch, 2, 2^k, 2^k) in the
-            complex case and (*operator_batch, 2^k, 2^k) in the real case.
-            Here, k is the number of qubits that the operator acts on.
+        operator: "Matrix" with size (*operator_batch, 2^k, 2^k). Here, k is
+        the number of qubits that the operator acts on.
 
         qubits: Sequence of qubits for the operator to act on. This should
             have length k (same k as above). Note that the order of items in
             `qubits` is important.
 
-        state: State in vector layout with size (*state_batch, 2, 2^n, 2^n)
+        state: State in vector layout with size (*state_batch, 2^n, 2^n)
             in the complex case and (*state_batch, 2^n, 2^n) in the real case.
             Here, n is the number of qubits.
-
-        field: Field of the operator and state.
     """
-    field = Field(field.lower())
     num_qubits = states.count_qubits(state)
     qubits = list(qubits)
     if not set(qubits).issubset(range(num_qubits)):
@@ -144,7 +142,6 @@ def apply_operator(
         qubits=qubits,
         state_tensor=state_tensor,
         num_qubits=num_qubits,
-        field=field,
         operator_num_qubits=op_num_qubits
     )
     return states.to_vector_layout(state_tensor, num_qubits=num_qubits)
@@ -155,7 +152,6 @@ def apply_operator_tensor(
         qubits: Iterable[int],
         state_tensor: torch.Tensor,
         num_qubits: int,
-        field: Field = Field.COMPLEX,
         operator_num_qubits: Optional[int] = None
 ):
     qubits = list(qubits)
@@ -177,7 +173,6 @@ def apply_operator_tensor(
         operator=operator,
         state_tensor=state_tensor,
         num_qubits=num_qubits,
-        field=field,
         gate_num_qubits=operator_num_qubits
     )
 
@@ -193,7 +188,6 @@ def apply_operator_tensor(
 def act_last_qubit(
         single_qubit_operator: torch.Tensor,
         state: torch.Tensor,
-        field: Union[Field, str] = Field.COMPLEX
 ) -> torch.Tensor:
     """Apply an operator to the last qubit.
 
@@ -203,14 +197,17 @@ def act_last_qubit(
             the first dimension is for real and imaginary parts.
 
         state: State or batch of states in vector layout.
-
-        field: Specification of the field.
     """
-    field = Field(field.lower())
+    warnings.warn(
+        'act_last_qubit and act_last_qubit_tensor are outdated. These\n'
+        'functions will be removed from Unitair in a later release or may\n'
+        'be revised to meet our current standards.\n'
+        'Please consider using apply_operator instead.'
+    )
     num_qubits = states.count_qubits(state)
     state_tensor = states.to_tensor_layout(state)
     state_tensor = act_last_qubit_tensor(
-        single_qubit_operator, state_tensor, num_qubits=num_qubits, field=field
+        single_qubit_operator, state_tensor
     )
     return states.to_vector_layout(state_tensor, num_qubits)
 
@@ -218,8 +215,6 @@ def act_last_qubit(
 def act_last_qubit_tensor(
         single_qubit_operator: torch.Tensor,
         state_tensor: torch.Tensor,
-        num_qubits: int,
-        field: Field = Field.COMPLEX
 ) -> torch.Tensor:
     """Apply an operator to the last qubit of a state in tensor layout.
 
@@ -229,51 +224,19 @@ def act_last_qubit_tensor(
                 the first dimension is for real and imaginary parts.
 
             state_tensor: State or batch of states in tensor layout.
-
-            num_qubits: Number of qubits.
-
-            field: Specification of the field.
         """
-    field = Field(field.lower())
-
     def act(matrix, tensor):
         """Contract matrix with the last index of tensor."""
         return torch.einsum('ab, ...b -> ...a', matrix, tensor)
 
-    if field is Field.REAL:
-        if single_qubit_operator.dim() != 2:
-            raise ValueError(
-                f'To act on a real vector space, expected operator size '
-                f'(2, 2), but got {single_qubit_operator.dim()}.'
-            )
-        return act(single_qubit_operator, state_tensor)
-
-    elif field is Field.COMPLEX:
-        if single_qubit_operator.dim() != 3:
-            raise ValueError(
-                f'Expected operator size '
-                f'(2, 2, 2), but got {single_qubit_operator.dim()}.'
-            )
-        real_op = single_qubit_operator[0]
-        imag_op = single_qubit_operator[1]
-
-        real_imag = states.real_imag_tensor(state_tensor, num_qubits)
-        real_state, imag_state = real_imag
-
-        real_tens = (act(real_op, real_state) - act(imag_op, imag_state))
-        imag_tens = (act(real_op, imag_state) + act(imag_op, real_state))
-        return torch.stack((real_tens, imag_tens), dim=-(num_qubits+1))
-    else:
-        assert False, f"Impossible enumeration{field}"
+    return act(single_qubit_operator, state_tensor)
 
 
 def act_first_qubits(
         operator: torch.Tensor,
         state: torch.Tensor,
-        field: Union[Field, str] = Field.COMPLEX
 ):
     """Apply a multi-qubit gate to the first qubits of a state."""
-    field = Field(field.lower())
     num_qubits = states.count_qubits(state)
     gate_num_qubits = states.count_qubits_gate_matrix(operator)
     if num_qubits < gate_num_qubits:
@@ -286,7 +249,6 @@ def act_first_qubits(
         operator=operator,
         state_tensor=state_tensor,
         num_qubits=num_qubits,
-        field=field,
         gate_num_qubits=gate_num_qubits
     )
     return states.to_vector_layout(state_tensor, num_qubits=num_qubits)
@@ -296,7 +258,6 @@ def act_first_qubits_tensor(
         operator: torch.Tensor,
         state_tensor: torch.Tensor,
         num_qubits: int,
-        field: Field = Field.COMPLEX,
         gate_num_qubits: Optional[int] = None,
 ):
     """Apply operator on first consecutive qubits of a state in tensor layout.
@@ -305,8 +266,7 @@ def act_first_qubits_tensor(
     k qubits (with k <= the number of qubits for the state).
 
     When used without batches, `operator` is a single-qubit operator specified
-    by a tensor of size (2, 2^k, 2^k) in the complex
-    case and (2^k, 2^k) in the real case. `state_tensor` is a state
+    by a tensor of size (2^k, 2^k). `state_tensor` is a state
     in tensor layout for n qubits. The operator acts on the first k consecutive
     qubits. A new state in tensor layout is then returned.
 
@@ -325,7 +285,6 @@ def act_first_qubits_tensor(
         `operator` has batch dimensions but `state_tensor` does not:
             In this case, each operator acts on the same state.
     """
-    field = Field(field.lower())
     if gate_num_qubits is None:
         gate_num_qubits = states.count_qubits_gate_matrix(operator)
 
@@ -333,9 +292,9 @@ def act_first_qubits_tensor(
 
     # Determine the batch structure for the state(s) and operator(s).
     state_n_batch_dims = states.count_batch_dims_tensor(
-        state_tensor, num_qubits, field
+        state_tensor, num_qubits
     )
-    op_n_batch_dims = count_gate_batch_dims(operator, field)
+    op_n_batch_dims = count_gate_batch_dims(operator)
     state_batch_dims = state_tensor.size()[:state_n_batch_dims]
     op_batch_dims = operator.size()[:op_n_batch_dims]
 
@@ -362,30 +321,16 @@ def act_first_qubits_tensor(
         result = torch.einsum('ab..., b... -> a...', op, tensor_view)
         return result.view(old_size)
 
-    if field is Field.REAL:
-        result_batch_flipped = act(operator, state_tensor)
-
-    elif field is Field.COMPLEX:
-        real_tens = (
-                act(operator[0], state_tensor[0])
-                - act(operator[1], state_tensor[1])
-        )
-        imag_tens = (
-                act(operator[0], state_tensor[1])
-                + act(operator[1], state_tensor[0])
-        )
-        result_batch_flipped = torch.stack((real_tens, imag_tens), dim=0)
-    else:
-        assert False, f"Impossible enumeration{field}"
-
+    result_batch_flipped = act(operator, state_tensor)
     return states.subset_roll_to_front(
-        result_batch_flipped, state_n_batch_dims)
+        tensor=result_batch_flipped,
+        subset_num_dims=state_n_batch_dims
+    )
 
 
 def apply_all_qubits(
         operator: torch.Tensor,
         state: torch.Tensor,
-        field: Field = Field.COMPLEX
 ) -> torch.Tensor:
     """Apply the same single-qubit operator to each qubit of specified state.
 
@@ -400,22 +345,11 @@ def apply_all_qubits(
             on every qubit of every entry in `state`
 
     Args:
-        operator: Tensor with size (*batch_dims, 2, 2) or
-            (*batch_dims, 2, 2, 2) defining a real or complex 2 by 2 matrix
-            which will act on every qubit. In complex case, the first dimension
-            is for the real and imaginary parts. For each batch entry `matrix`,
-            this means:
-                matrix = matrix[0] + i matrix[1].
+        operator: Tensor with size (*batch_dims, 2, 2) defining a 2 by 2 matrix
+            which will act on every qubit.
 
         state: State in vector layout. This means that the state is a
-            tensor with size (*batch_dims, 2^num_bits,) or
-            (*batch_dims, 2, 2^num_bits) for the real or complex cases
-            respectively. In the complex case, the first dimension of each
-            batch entry is for the real and imaginary parts:
-                state = state[0] + i state[1]
-            (where state has no batch dimensions).
-
-        field: Specifies whether the Hilbert space is real or complex.
+            tensor with size (*batch_dims, 2^num_bits,).
     """
     if states.count_qubits_gate_matrix(operator) != 1:
         raise ValueError(
@@ -426,7 +360,7 @@ def apply_all_qubits(
     num_qubits = states.count_qubits(state)
     state_tensor = states.to_tensor_layout(state)
     state_tensor = apply_all_qubits_tensor(
-        operator, state_tensor, num_qubits=num_qubits, field=field
+        operator, state_tensor, num_qubits=num_qubits
     )
     return states.to_vector_layout(state_tensor, num_qubits=num_qubits)
 
@@ -435,7 +369,6 @@ def apply_all_qubits_tensor(
         operator: torch.Tensor,
         state_tensor: torch.Tensor,
         num_qubits: int,
-        field: Field = Field.COMPLEX
 ):
     """Apply one single-qubit operator to each qubit of state in tensor layout.
 
@@ -450,28 +383,18 @@ def apply_all_qubits_tensor(
             on every qubit of every entry in `state_tensor`
 
     Args:
-        operator: Tensor with size (*batch_dims, 2, 2) or
-            (*batch_dims, 2, 2, 2) defining a real or complex 2 by 2 matrix
-            which will act on every qubit. In complex case, the first dimension
-            is for the real and imaginary parts. For each batch entry `matrix`,
-            this means:
-                matrix = matrix[0] + i matrix[1].
+        operator: Tensor with size (*batch_dims, 2, 2) giving a 2 by 2 matrix.
 
         state_tensor: State in tensor layout. Size is
-            (*batch_dims, 2, 2, ...,2, 2) where the number of 2's is
-            num_qubits or num_qubits + 1 for the real and complex cases.
+            (*batch_dims, 2, 2, ...,2, 2) where the number of 2's is equal to
+            the number of qubits.
 
         num_qubits: The number of qubits for the quantum state.
-
-        field: Specifies whether the Hilbert space is real or complex.
     """
-    field = Field(field.lower())
-
     state_tensor = act_first_qubits_tensor(
         operator=operator,
         state_tensor=state_tensor,
         num_qubits=num_qubits,
-        field=field,
         gate_num_qubits=1
     )
     for i in range(1, num_qubits):
@@ -479,12 +402,11 @@ def apply_all_qubits_tensor(
             state_tensor, qubit_pair=(0, i), num_qubits=num_qubits
         )
         state_tensor = act_first_qubits_tensor(
-            operator, state_tensor, num_qubits=num_qubits, field=field,
-            gate_num_qubits=1
+            operator, state_tensor, num_qubits=num_qubits, gate_num_qubits=1
         )
 
     state_tensor = roll_qubits_tensor(
-        state_tensor, num_qubits, num_steps=-1, field=field
+        state_tensor, num_qubits, num_steps=-1
     )
 
     return state_tensor
@@ -494,7 +416,6 @@ def apply_to_qubits(
         operators: Iterable[torch.Tensor],
         qubits: Iterable[int],
         state: torch.Tensor,
-        field: Union[Field, str] = Field.COMPLEX
 ):
     """Apply single-qubit gates to specified qubits of state in vector layout.
 
@@ -502,10 +423,9 @@ def apply_to_qubits(
     qubits.
     """
     num_qubits = states.count_qubits(state)
-    field = Field.from_case_insensitive(field)
     state_tensor = states.to_tensor_layout(state)
     state_tensor = apply_to_qubits_tensor(
-        operators, qubits, state_tensor, num_qubits, field
+        operators, qubits, state_tensor, num_qubits
     )
     return states.to_vector_layout(state_tensor, num_qubits=num_qubits)
 
@@ -515,16 +435,13 @@ def apply_to_qubits_tensor(
         qubits: Union[Iterable[int]],
         state_tensor: torch.Tensor,
         num_qubits: int,
-        field: Field = Field.COMPLEX
 ):
     """Apply single qubit gates to specified qubits of state in tensor layout.
     """
-    field = Field.from_case_insensitive(field)
-
     for gate, q in zip(operators, qubits):
         state_tensor = swap_tensor(state_tensor, (0, q), num_qubits)
         state_tensor = act_first_qubits_tensor(
-            gate, state_tensor, num_qubits, field, gate_num_qubits=1
+            gate, state_tensor, num_qubits, gate_num_qubits=1
         )
         state_tensor = swap_tensor(state_tensor, (0, q), num_qubits)
     return state_tensor
@@ -594,7 +511,7 @@ def swap_tensor(
 
 
 def roll_qubits(
-        state: torch.Tensor, num_steps=1, field: Field = Field.COMPLEX
+        state: torch.Tensor, num_steps=1
 ):
     """Perform a cyclic permutation of qubits for a state.
 
@@ -611,18 +528,17 @@ def roll_qubits(
 
     < 0010 | psi' > = c.
     """
-    field = Field(field.lower())
     num_qubits = states.count_qubits(state)
 
     state_tensor = states.to_tensor_layout(state)
-    state_tensor = roll_qubits_tensor(
-        state_tensor, num_qubits, num_steps, field
-    )
+    state_tensor = roll_qubits_tensor(state_tensor, num_qubits, num_steps)
     return states.to_vector_layout(state_tensor, num_qubits)
 
 
 def roll_qubits_tensor(
-        state_tensor, num_qubits, num_steps=1, field: Field = Field.COMPLEX
+        state_tensor: torch.Tensor,
+        num_qubits: int,
+        num_steps: int = 1
 ):
     """Perform a cyclic permutation of qubits for a state in tensor layout.
 
@@ -632,9 +548,8 @@ def roll_qubits_tensor(
     psi_rolled[a_0, a_1, ..., a_{n-1}]
         = psi[a_k, a_{k+1}, ..., a_{n-1}, a_0, ..., a_{k-1}].
 
-    Note that in this formula is for the real case. In the complex case
-    there is one more initial index which is not altered by the
-    permutation.
+    Note that this formula does not include batch dimensions which are
+    allowed and arbitrary.
 
     Args:
         state_tensor: state in tensor layout to be permuted.
@@ -642,26 +557,16 @@ def roll_qubits_tensor(
         num_qubits: Number of qubits for the state.
 
         num_steps: Number of indices to cycle.
-
-        field: The Field for `state_tensor`.
     """
-    # TODO: document new batching
     num_batch_dims = states.count_batch_dims_tensor(
-        state_tensor, num_qubits, field)
-    field = Field(field.lower())
+        state_tensor, num_qubits)
     num_steps = num_steps % num_qubits
     if num_steps == 0:
         return state_tensor
-    if field is Field.REAL:
-        identity = list(range(num_batch_dims, num_batch_dims + num_qubits))
-        perm = identity[-num_steps:] + identity[:-num_steps]
-    else:
-        identity = list(range(
-            1 + num_batch_dims,
-            num_qubits + 1 + num_batch_dims)
-        )
-        perm = [num_batch_dims] + identity[-num_steps:] + identity[:-num_steps]
-    perm = list(range(num_batch_dims))+perm
+
+    identity = list(range(num_batch_dims, num_batch_dims + num_qubits))
+    perm = identity[-num_steps:] + identity[:-num_steps]
+    perm = list(range(num_batch_dims)) + perm
     return state_tensor.permute(perm)
 
 

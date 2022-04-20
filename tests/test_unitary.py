@@ -13,10 +13,10 @@ class UnitaryOperatorCases(unittest.TestCase):
             """Multiply the jth dimension of state by e^(-i angles_j)."""
             cos = angles_.cos()
             sin = angles_.sin()
-            return torch.stack((
-                cos * state_[0] + sin * state_[1],
-                -sin * state_[0] + cos * state_[1]
-            ))
+            return torch.complex(
+                cos * state.real + sin * state.imag,
+                -sin * state.real + cos * state.imag
+            )
 
         state = initializations.rand_state(5)
         angles = torch.rand(2 ** 5)
@@ -24,15 +24,15 @@ class UnitaryOperatorCases(unittest.TestCase):
         rotated = sim.apply_phase(angles, state)
         rotated_basic = basic_phase(angles, state)
 
-        self.assertTrue((rotated == rotated_basic).all())
+        self.assertTrue((torch.isclose(rotated, rotated_basic)).all())
 
-        state_batch = torch.rand(4, 2, 2, 2 ** 3)
+        state_batch = torch.rand(4, 2, 2 ** 3)
         angles = torch.rand(4, 2, 2 ** 3)
         rotated = sim.apply_phase(angles, state_batch)
 
         single_entry_rotated = sim.apply_phase(angles[2, 0], state_batch[2, 0])
 
-        self.assertEqual(rotated.size(), torch.Size([4, 2, 2, 2 ** 3]))
+        self.assertEqual(rotated.size(), torch.Size([4, 2, 2 ** 3]))
         self.assertTrue((rotated[2, 0] == single_entry_rotated).all())
 
     def test_apply_to_apply_all(self):
@@ -54,7 +54,7 @@ class UnitaryOperatorCases(unittest.TestCase):
     def test_apply_last(self):
         for n in range(1, 6):
 
-            op = torch.rand(2, 2, 2)
+            op = torch.rand(2, 2, dtype=torch.complex64)
 
             state = initializations.rand_state(n)
             final_1 = sim.act_last_qubit(op, state)
@@ -63,17 +63,16 @@ class UnitaryOperatorCases(unittest.TestCase):
             self.assertTrue((final_1 == final_2).all())
 
         for n in range(1, 5):
+            op = torch.rand(2, 2, dtype=torch.complex64)
 
-            op = torch.rand(2, 2)
-
-            state = initializations.rand_state(n, field='REAL')
-            final_1 = sim.act_last_qubit(op, state, field='REAL')
-            final_2 = sim.apply_to_qubits([op], [n - 1], state, field='real')
+            state = initializations.rand_state(n)
+            final_1 = sim.act_last_qubit(op, state)
+            final_2 = sim.apply_to_qubits([op], [n - 1], state)
 
             self.assertTrue((final_1 == final_2).all())
 
-        op = torch.rand(2, 2, 2)
-        state_batch = torch.rand(4, 3, 2, 2, 2, 2, 2, 2)
+        op = torch.rand(2, 2, dtype=torch.complex64)
+        state_batch = torch.rand(4, 3, 2, 2, 2, 2, 2, dtype=torch.complex64)
         final_batch = sim.act_last_qubit(op, state_batch)
         same = torch.allclose(
             final_batch[2, 2],
@@ -98,12 +97,12 @@ class UnitaryOperatorCases(unittest.TestCase):
         swapped = sim.swap(state, qubit_pair=(0, 1))
         self.assertTrue(swapped.allclose(state))
         # complex invariant example
-        state = torch.tensor([[2.24, 1., 1., 73.], [.3, 0.2, 0.2, -0.13]])
+        state = torch.tensor([2.24 + .3j, 1. + .2j, 1. + .2j, 73. - .13j])
         swapped = sim.swap(state, qubit_pair=(0, 1))
         self.assertTrue(swapped.allclose(state))
 
-        # random real example with five qubits:
-        state = initializations.rand_state(5, field='real')
+        # random example with five qubits:
+        state = initializations.rand_state(5)
         swapped = sim.swap(state, (0, 4))
         state_tensor = states.to_tensor_layout(state)
         manual_swap = state_tensor.transpose(0, 4)
@@ -111,16 +110,16 @@ class UnitaryOperatorCases(unittest.TestCase):
         self.assertTrue(swapped.allclose(manual_swap))
 
         # Now a complicated example with batch dimensions for four qubits:
-        state = torch.rand(3, 1, 3, 2, 2 ** 4)
+        state = torch.rand(3, 1, 3, 2 ** 4, dtype=torch.complex64)
         swapped = sim.swap(state, (1, 2))
 
         state_tensor = states.to_tensor_layout(state)
-        manual_swap = state_tensor.transpose(5, 6)
+        manual_swap = state_tensor.transpose(4, 5)
         manual_swap = states.to_vector_layout(manual_swap, num_qubits=4)
         self.assertTrue(swapped.allclose(manual_swap))
 
         # Check batching behavior
-        state = torch.rand(2, 3, 2, 2 ** 4)
+        state = torch.rand(2, 3, 2 ** 4, dtype=torch.complex64)
         swapped = sim.swap(state, qubit_pair=(3, 1))
         swapped_entry = sim.swap(state[0, 1], qubit_pair=(3, 1))
         self.assertTrue(swapped[0, 1].allclose(swapped_entry))

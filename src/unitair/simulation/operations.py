@@ -5,10 +5,12 @@ import unitair.states as states
 from .utils import count_gate_batch_dims
 from unitair.utils import permutation_to_front, inverse_list_permutation
 import numpy as np
+from unitair.gates.matrix_algebra import fuse_single_qubit_operators
+from ..gates import hadamard
 
 # TODO: should most validation be in the "front-end" vector functions or should
 #  it be in the tensor functions? Many cases here actually validate in both.
-from ..gates import hadamard
+
 
 
 def apply_phase(angles: torch.Tensor, state: torch.Tensor):
@@ -417,10 +419,25 @@ def apply_to_qubits(
         qubits: Iterable[int],
         state: torch.Tensor,
 ):
-    """Apply single-qubit gates to specified qubits of state in vector layout.
+    """Apply single qubit gates to specified qubits of a state.
 
-    This function applies an iterable of gates to an iterable of respective
-    qubits.
+    This function applies an iterable of single-qubit operators to
+    the qubits specified by an iterable of integers. Qubit indices
+    must range from 0 to n-1 where n is the number of qubits.
+
+    We collect all operators acting on a given qubit and multiply them prior
+    to acting on the state; this "gate fusion" is often more efficient than
+    applying gates to a state one-by-one.
+
+    Args:
+        operators: Iterable over single qubit operators. Size of each element
+            should be (*batch_dims, 2, 2). All batch dims must be the same.
+
+        qubits: Iterable over the qubit integers for each operator. `operators`
+            and `qubits` must line up in the sense that zip(operators, qubits)
+            produces matrix, qubit pairs appropriately.
+
+        state: State in vector layout. The size should be (*batch_dims, 2^n). `
     """
     num_qubits = states.count_qubits(state)
     state_tensor = states.to_tensor_layout(state)
@@ -431,20 +448,60 @@ def apply_to_qubits(
 
 
 def apply_to_qubits_tensor(
-        operators: Union[Iterable[torch.Tensor]],
-        qubits: Union[Iterable[int]],
+        operators: Iterable[torch.Tensor],
+        qubits: Iterable[int],
         state_tensor: torch.Tensor,
         num_qubits: int,
 ):
     """Apply single qubit gates to specified qubits of state in tensor layout.
+
+    This function collects all operators acting on a given qubit and multiplies
+    them prior to acting on the state; this is often more efficient.
+
+    Args:
+        operators: Iterable over single qubit operators. Size of each element
+            should be (*batch_dims, 2, 2). All batch dims must be the same.
+
+        qubits: Iterable over the qubit integers for each operator. `operators`
+            and `qubits` must line up in the sense that zip(operators, qubits)
+            produces matrix, qubit pairs appropriately.
+
+        state_tensor: State in tensor layout.
+
+        num_qubits: The number of qubits for the state.    `
     """
-    for gate, q in zip(operators, qubits):
+    # First we fuse gates acting on the same qubit.
+    qubits_to_fused_ops = fuse_single_qubit_operators(qubits, operators)
+
+    # If qubit 0 is included, apply its gate first to avoid back and forth
+    # permutation. Note that we pop the gate so qubit 0 will not be used again.
+    try:
+        gate = qubits_to_fused_ops.pop(0)
+        state_tensor = act_first_qubits_tensor(
+            gate,
+            state_tensor,
+            num_qubits,
+            gate_num_qubits=1
+        )
+    except KeyError:
+        pass
+
+    perm = list(range(num_qubits))
+    for q, gate in qubits_to_fused_ops.items():
+
+        # Track the overall permutation as we swap qubits.
+        # Very importantly, each q is encountered either once or never.
+        perm[q], perm[0] = perm[0], q
         state_tensor = swap_tensor(state_tensor, (0, q), num_qubits)
+
         state_tensor = act_first_qubits_tensor(
             gate, state_tensor, num_qubits, gate_num_qubits=1
         )
-        state_tensor = swap_tensor(state_tensor, (0, q), num_qubits)
-    return state_tensor
+    return permute_qubits_tensor(
+        permutation=inverse_list_permutation(perm),
+        state_tensor=state_tensor,
+        num_qubits=num_qubits
+    )
 
 
 def swap(state: torch.Tensor, qubit_pair: Tuple[int, int]):

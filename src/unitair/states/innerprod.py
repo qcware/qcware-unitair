@@ -46,11 +46,17 @@ def norm_squared(state: torch.Tensor):
     return torch.sum(abs_squared(state), dim=-1)
 
 
-# TODO: Calling this "expectation value" is a legacy issue. We need to
-#   change the name which is API-breaking.
-def expectation_value(function_values, state):
-    """Get the expectation value of a real-valued function of binary values."""
-    return torch.sum(abs_squared(state) * function_values, dim=-1)
+def diag_expectation_value(diag_values, state):
+    """Get the expectation value of a diagonal matrix.
+
+    Args:
+        diag_values: Tensor with size (*batch_dims, 2^n) where n is the
+            number of qubits. For a given batch entry, the 2^n elements
+            are the diagonal matrix elements of the operator.
+
+        state: State in vector layout.
+    """
+    return torch.sum(abs_squared(state) * diag_values, dim=-1)
 
 
 def inner_product(state_1, state_2):

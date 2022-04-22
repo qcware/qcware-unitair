@@ -12,7 +12,6 @@ from ..gates import hadamard
 #  it be in the tensor functions? Many cases here actually validate in both.
 
 
-
 def apply_phase(angles: torch.Tensor, state: torch.Tensor):
     """Multiply the kth component of state by e^(-i angles_k).
 

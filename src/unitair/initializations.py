@@ -92,12 +92,12 @@ def rand_state(
     state = torch.randn(
         size,
         device=device,
-        requires_grad=requires_grad,
         dtype=dtype
     )
     norm = states.norm_squared(state).sqrt()
     norm_size_for_division = norm.size() + (1,)
-    return state / norm.view(norm_size_for_division)
+    state /= norm.view(norm_size_for_division)
+    return state.requires_grad_(requires_grad)
 
 
 def uniform_superposition(

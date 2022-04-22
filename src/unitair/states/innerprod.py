@@ -62,4 +62,4 @@ def diag_expectation_value(diag_values, state):
 def inner_product(state_1, state_2):
     """Compute < state_1 | state_2 > (the left entry is conjugate-linear).
     """
-    return torch.sum(state_1.conj() * state_2)
+    return torch.sum(state_1.conj() * state_2, dim=-1)
